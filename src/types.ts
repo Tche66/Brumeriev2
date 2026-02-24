@@ -4,7 +4,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  phone: string; // WhatsApp
+  phone: string;
   role: 'buyer' | 'seller';
   neighborhood: string;
   photoURL?: string;
@@ -12,8 +12,11 @@ export interface User {
   salesCount: number;
   createdAt: Date;
   publicationCount: number;
-  publicationLimit: number; // 50 pour tous en V1
+  publicationLimit: number;
   lastPublicationReset: Date;
+  hasPhysicalShop?: boolean;
+  managesDelivery?: boolean;
+  bio?: string;
 }
 
 export interface Product {
@@ -23,7 +26,7 @@ export interface Product {
   description: string;
   category: string;
   neighborhood: string;
-  images: string[]; // 1-3 images
+  images: string[];
   sellerId: string;
   sellerName: string;
   sellerPhone: string;
@@ -62,6 +65,36 @@ export const NEIGHBORHOODS = [
   'Port-Bouët',
   'Attécoubé',
   'Treichville',
+  'Bingerville',
+  'Songon',
+  'Anyama',
+  'Dabou',
+  'Grand-Lahou',
+  'Jacqueville',
+  'Williamsville',
+  'Vridi',
+  'Zone 4',
+  'Zone industrielle',
+  'Riviera',
+  'Angré',
+  'Deux Plateaux',
+  'Blockhaus',
+  'Bonoumin',
+  'Palmeraie',
+  'Adiopodoumé',
+  'Niangon',
+  'Selmer',
+  'Locodjoro',
+  'Gbagba',
+  'Toits Rouges',
+  'Siporex',
+  'Wassakara',
+  'Sagbé',
+  'Doukouré',
+  'Anono',
+  'Djibi',
+  'Akouédo',
+  'Banco',
 ];
 
 export interface VerificationRequest {
@@ -85,7 +118,7 @@ export interface Feedback {
   createdAt: Date;
 }
 
-export const VERIFICATION_PRICE = 2000; // FCFA
+export const VERIFICATION_PRICE = 2000;
 export const VERIFICATION_WHATSAPP = '22586867693';
 export const SUPPORT_EMAIL = 'brumerieciv.email@gmail.com';
 export const SUPPORT_WHATSAPP = '22586867693';

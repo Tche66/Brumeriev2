@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 interface SettingsPageProps {
   onBack: () => void;
   onNavigate: (page: string) => void;
+  role?: 'buyer' | 'seller';
 }
 
 function SettingItem({ icon, label, sublabel, onClick, danger, badge }: {
@@ -45,7 +46,7 @@ function SettingSection({ title, children }: { title: string; children: React.Re
   );
 }
 
-export function SettingsPage({ onBack, onNavigate }: SettingsPageProps) {
+export function SettingsPage({ onBack, onNavigate, role = 'seller' }: SettingsPageProps) {
   const { userProfile, signOut } = useAuth();
 
   const handleBack = () => {
