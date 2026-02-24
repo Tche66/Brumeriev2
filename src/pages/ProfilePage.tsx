@@ -1,0 +1,313 @@
+// src/pages/ProfilePage.tsx
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { ProductCard } from '@/components/ProductCard';
+import { getSellerProducts, markProductAsSold, deleteProduct, updateProductStatus, getProducts } from '@/services/productService';
+import { Product } from '@/types';
+
+interface ProfilePageProps {
+  onProductClick: (product: Product) => void;
+  onNavigate?: (page: string) => void;
+}
+
+function VerifiedBadge() {
+  return (
+    <div style={{
+      width: 22, height: 22, borderRadius: '50%', background: '#1D9BF0',
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4">
+        <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    </div>
+  );
+}
+
+type Tab = 'active' | 'sold' | 'bookmarks';
+
+export function ProfilePage({ onProductClick, onNavigate }: ProfilePageProps) {
+  const { userProfile } = useAuth();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [bookmarkedProducts, setBookmarkedProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [bookmarksLoading, setBookmarksLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>('active');
+  const [actionProduct, setActionProduct] = useState<Product | null>(null);
+  const [bookmarks, setBookmarks] = useState<Set<string>>(() => {
+    try {
+      const s = localStorage.getItem('brumerie_bookmarks');
+      return s ? new Set(JSON.parse(s)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  useEffect(() => { if (userProfile) loadUserProducts(); }, [userProfile]);
+
+  useEffect(() => {
+    if (activeTab === 'bookmarks') loadBookmarks();
+  }, [activeTab]);
+
+  async function loadUserProducts() {
+    if (!userProfile) return;
+    setLoading(true);
+    try {
+      const data = await getSellerProducts(userProfile.id);
+      setProducts(data);
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
+  }
+
+  async function loadBookmarks() {
+    setBookmarksLoading(true);
+    try {
+      const ids = [...bookmarks];
+      if (!ids.length) { setBookmarkedProducts([]); return; }
+      const all = await getProducts();
+      setBookmarkedProducts(all.filter(p => ids.includes(p.id)));
+    } catch (e) { console.error(e); }
+    finally { setBookmarksLoading(false); }
+  }
+
+  const triggerConfetti = async () => {
+    try {
+      const m = await import('https://cdn.skypack.dev/canvas-confetti');
+      m.default({ particleCount: 150, spread: 70, origin: { y: 0.7 }, colors: ['#16A34A', '#0F172A', '#fff'] });
+    } catch {}
+  };
+
+  const activeProducts = products.filter(p => p.status !== 'sold');
+  const soldProducts   = products.filter(p => p.status === 'sold');
+
+  const displayProducts =
+    activeTab === 'active'    ? activeProducts :
+    activeTab === 'sold'      ? soldProducts   :
+    bookmarkedProducts;
+
+  const handleMarkAsSold = async (id: string) => {
+    await triggerConfetti();
+    await markProductAsSold(id);
+    setProducts(prev => prev.map(p => p.id === id ? { ...p, status: 'sold' as const } : p));
+    setTimeout(() => { setActionProduct(null); setActiveTab('sold'); }, 500);
+  };
+
+  const handleRelist = async (id: string) => {
+    await updateProductStatus(id, 'active');
+    setProducts(prev => prev.map(p => p.id === id ? { ...p, status: 'active' as const } : p));
+    setActionProduct(null); setActiveTab('active');
+  };
+
+  const handleRemoveBookmark = (id: string) => {
+    setBookmarkedProducts(prev => prev.filter(p => p.id !== id));
+    setBookmarks(prev => {
+      const next = new Set(prev); next.delete(id);
+      localStorage.setItem('brumerie_bookmarks', JSON.stringify([...next]));
+      return next;
+    });
+  };
+
+  if (!userProfile) return null;
+  const totalWA = products.reduce((a, p) => a + (p.whatsappClickCount || 0), 0);
+
+  return (
+    <div className="min-h-screen bg-white page-container">
+
+      {/* Bouton Paramètres — haut droite */}
+      <button
+        onClick={() => onNavigate?.('settings')}
+        className="settings-gear-btn"
+        title="Paramètres"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+
+      {/* Header profil */}
+      <div className="px-6 pt-14 pb-6 flex flex-col items-center">
+        <div className="relative mb-5">
+          <div className="w-24 h-24 rounded-[2.6rem] overflow-hidden border-[6px] border-slate-50 shadow-2xl">
+            <img
+              src={userProfile.photoURL || `https://ui-avatars.com/api/?name=${userProfile.name}`}
+              alt={userProfile.name} className="w-full h-full object-cover"
+            />
+          </div>
+          {userProfile.isVerified && (
+            <div className="absolute -bottom-1 -right-1 border-4 border-white rounded-full shadow-lg">
+              <VerifiedBadge />
+            </div>
+          )}
+        </div>
+
+        <h1 className="text-2xl font-bold text-slate-900 uppercase tracking-tight mb-2">{userProfile.name}</h1>
+
+        <div className="flex gap-2 mb-4 flex-wrap justify-center">
+          {userProfile.hasPhysicalShop && (
+            <span className="flex items-center gap-1.5 bg-slate-900 text-white text-[9px] font-bold px-3 py-1.5 rounded-xl uppercase tracking-wider">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>
+              Boutique
+            </span>
+          )}
+          {userProfile.managesDelivery && (
+            <span className="flex items-center gap-1.5 bg-green-600 text-white text-[9px] font-bold px-3 py-1.5 rounded-xl uppercase tracking-wider">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="5.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/><path d="M8 17.5h7M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
+              Livraison
+            </span>
+          )}
+        </div>
+
+        {userProfile.bio && (
+          <p className="text-xs text-slate-400 italic text-center px-4 mb-6 leading-relaxed">"{userProfile.bio}"</p>
+        )}
+
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-4 w-full">
+          <div className="bg-slate-50 rounded-3xl p-4 text-center border border-slate-100">
+            <p className="price-brumerie text-xl text-slate-900">{activeProducts.length}</p>
+            <p className="text-[9px] font-bold uppercase text-slate-400">Actifs</p>
+          </div>
+          <div className="bg-green-50 rounded-3xl p-4 text-center border border-green-100">
+            <p className="price-brumerie text-xl text-green-700">{soldProducts.length}</p>
+            <p className="text-[9px] font-bold uppercase text-green-600">Vendus</p>
+          </div>
+          <div className="bg-blue-50 rounded-3xl p-4 text-center border border-blue-100">
+            <p className="price-brumerie text-xl text-blue-700">{totalWA}</p>
+            <p className="text-[9px] font-bold uppercase text-blue-600">Contacts</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs — 3 onglets */}
+      <div className="flex px-6 gap-2 mb-6">
+        <button
+          onClick={() => setActiveTab('active')}
+          className={`flex-1 py-4 rounded-2xl text-[9px] font-bold uppercase tracking-widest transition-all ${activeTab === 'active' ? 'bg-slate-900 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}
+        >
+          Articles<br /><span className="text-[8px] opacity-70">({activeProducts.length})</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('sold')}
+          className={`flex-1 py-4 rounded-2xl text-[9px] font-bold uppercase tracking-widest transition-all ${activeTab === 'sold' ? 'bg-green-600 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}
+        >
+          Succès<br /><span className="text-[8px] opacity-70">({soldProducts.length})</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('bookmarks')}
+          className={`flex-1 py-4 rounded-2xl text-[9px] font-bold uppercase tracking-widest transition-all flex flex-col items-center gap-1 ${activeTab === 'bookmarks' ? 'shadow-lg' : 'bg-slate-50 text-slate-400'}`}
+          style={activeTab === 'bookmarks' ? { background: '#1D9BF0', color: 'white' } : {}}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill={activeTab === 'bookmarks' ? 'white' : '#94A3B8'} stroke="none">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+          </svg>
+          Favoris<br /><span className="text-[8px] opacity-70">({bookmarks.size})</span>
+        </button>
+      </div>
+
+      {/* Contenu des onglets */}
+      <div className="px-6">
+        {(loading && activeTab !== 'bookmarks') || (bookmarksLoading && activeTab === 'bookmarks') ? (
+          <div className="grid grid-cols-2 gap-4">
+            {[1,2,3,4].map(i => <div key={i} className="aspect-[4/5] bg-slate-50 rounded-[2.5rem] animate-pulse" />)}
+          </div>
+        ) : displayProducts.length === 0 ? (
+          <div className="text-center py-20 bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-100">
+            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
+              {activeTab === 'bookmarks' ? (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                </svg>
+              ) : (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/>
+                </svg>
+              )}
+            </div>
+            <p className="text-[10px] font-bold uppercase text-slate-400 tracking-widest">
+              {activeTab === 'bookmarks' ? 'Aucun favori enregistré' : 'Aucun article ici'}
+            </p>
+            {activeTab === 'bookmarks' && (
+              <p className="text-[9px] text-slate-300 mt-2">Appuie sur le signet d'une annonce pour l'enregistrer</p>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4 animate-fade-up">
+            {displayProducts.map((product) => (
+              <div key={product.id} className="relative group">
+                <ProductCard
+                  product={product}
+                  onClick={() => onProductClick(product)}
+                  onBookmark={activeTab === 'bookmarks' ? handleRemoveBookmark : undefined}
+                  isBookmarked={activeTab === 'bookmarks' ? true : bookmarks.has(product.id)}
+                />
+                {activeTab !== 'bookmarks' && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setActionProduct(product); }}
+                    className="absolute top-3 right-3 w-9 h-9 bg-white/90 backdrop-blur-md rounded-2xl shadow-lg flex items-center justify-center text-slate-900 active:scale-90 transition-all z-10 border border-white"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                      <circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/>
+                    </svg>
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Bouton modifier profil */}
+      <div className="px-6 mt-8 mb-4">
+        <button
+          onClick={() => onNavigate?.('edit-profile')}
+          className="btn-secondary-custom w-full py-5 rounded-[2rem] text-[11px] font-bold uppercase tracking-[0.2em]"
+        >
+          Modifier mon profil
+        </button>
+      </div>
+
+      {/* Action Sheet */}
+      {actionProduct && (
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-end justify-center p-4"
+          onClick={() => setActionProduct(null)}
+        >
+          <div className="bg-white w-full max-w-md rounded-[3rem] p-8 animate-slide-up" onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-1.5 bg-slate-100 rounded-full mx-auto mb-6" />
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 text-center mb-6 line-clamp-1">{actionProduct.title}</p>
+            <div className="flex flex-col gap-3">
+              {actionProduct.status !== 'sold' ? (
+                <button
+                  onClick={() => handleMarkAsSold(actionProduct.id)}
+                  className="w-full py-5 rounded-3xl bg-green-600 text-white font-bold text-xs uppercase tracking-widest shadow-xl shadow-green-100 active:scale-95 transition-all"
+                >
+                  Marquer comme Vendu
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleRelist(actionProduct.id)}
+                  className="w-full py-5 rounded-3xl bg-blue-600 text-white font-bold text-xs uppercase tracking-widest shadow-xl shadow-blue-100 active:scale-95 transition-all"
+                >
+                  Remettre en vente
+                </button>
+              )}
+              <button
+                onClick={async () => {
+                  if (window.confirm('Supprimer définitivement cet article ?')) {
+                    await deleteProduct(actionProduct.id, userProfile.id);
+                    setProducts(prev => prev.filter(p => p.id !== actionProduct.id));
+                    setActionProduct(null);
+                  }
+                }}
+                className="w-full py-5 rounded-3xl bg-red-50 text-red-600 font-bold text-xs uppercase tracking-widest active:scale-95 transition-all"
+              >
+                Supprimer l'annonce
+              </button>
+              <button onClick={() => setActionProduct(null)} className="w-full py-4 text-slate-400 font-bold text-xs uppercase tracking-widest">
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

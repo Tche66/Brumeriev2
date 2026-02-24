@@ -1,0 +1,86 @@
+// src/components/Header.tsx
+import React, { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+
+interface HeaderProps {
+  onProfileClick?: () => void;
+  onSearchChange?: (term: string) => void;
+  searchTerm?: string;
+}
+
+export function Header({ onProfileClick, onSearchChange, searchTerm = '' }: HeaderProps) {
+  const { userProfile } = useAuth();
+  const [focused, setFocused] = useState(false);
+
+  return (
+    <header className="bg-white sticky top-0 z-50 border-b border-gray-100">
+      <div className="px-4 pt-4 pb-3">
+
+        {/* Top row */}
+        <div className="flex items-center justify-between mb-3">
+
+          {/* Logo horizontal officiel */}
+          <div className="flex items-center">
+            <img
+              src="/assets/Logos/logo-horizontal.png"
+              alt="Brumerie"
+              className="h-9 w-auto object-contain"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                const p = e.currentTarget.parentElement;
+                if (p) p.innerHTML = `<span style="font-family:'Syne',sans-serif;font-weight:900;font-size:20px;color:#115E2E;letter-spacing:-0.04em">BRUMERIE</span>`;
+              }}
+            />
+          </div>
+
+          {/* Avatar utilisateur */}
+          {userProfile && (
+            <button
+              onClick={onProfileClick}
+              className="relative w-9 h-9 rounded-full overflow-hidden border-2 border-green-100 hover:border-green-500 transition-all duration-200"
+            >
+              {userProfile.photoURL ? (
+                <img src={userProfile.photoURL} alt={userProfile.name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-green-50 flex items-center justify-center">
+                  <span className="text-green-600 font-bold text-sm">{userProfile.name?.charAt(0)?.toUpperCase()}</span>
+                </div>
+              )}
+              {userProfile.isVerified && (
+                <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white" style={{ background: '#1D9BF0' }} />
+              )}
+            </button>
+          )}
+        </div>
+
+        {/* Barre de recherche */}
+        <div className={`relative transition-all duration-200 ${focused ? 'scale-[1.01]' : ''}`}>
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+          </span>
+          <input
+            type="text"
+            placeholder="Chercher un article, une marque..."
+            value={searchTerm}
+            onChange={(e) => onSearchChange?.(e.target.value)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm placeholder-gray-400 transition-all duration-200 focus:outline-none focus:border-green-400 focus:bg-white"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => onSearchChange?.('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
+    </header>
+  );
+}
