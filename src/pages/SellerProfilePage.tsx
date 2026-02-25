@@ -128,6 +128,28 @@ export function SellerProfilePage({ sellerId, onBack, onProductClick }: SellerPr
                   </span>
                 )}
               </div>
+
+              {/* Stats : note + contacts */}
+              <div className="flex items-center gap-4 mt-4 pt-4 border-t border-slate-100 w-full justify-center">
+                {/* Note */}
+                <div className="flex flex-col items-center">
+                  <div className="flex items-center gap-1">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="#FBBF24" stroke="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    <span className="font-black text-slate-900 text-[14px]">
+                      {seller.rating ? seller.rating.toFixed(1) : '—'}
+                    </span>
+                  </div>
+                  <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">
+                    {seller.reviewCount ? `${seller.reviewCount} avis` : 'Aucun avis'}
+                  </span>
+                </div>
+                <div className="w-px h-8 bg-slate-100" />
+                {/* Contacts */}
+                <div className="flex flex-col items-center">
+                  <span className="font-black text-slate-900 text-[14px]">{(seller as any).contactCount || 0}</span>
+                  <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Contacts</span>
+                </div>
+              </div>
             </div>
 
             {/* Stats — avec ventes réelles */}

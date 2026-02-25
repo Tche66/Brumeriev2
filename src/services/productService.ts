@@ -163,6 +163,14 @@ export async function incrementWhatsAppClick(productId: string): Promise<void> {
   await updateDoc(doc(db, 'products', productId), { whatsappClickCount: increment(1) });
 }
 
+// Sprint 5 — compteur de contacts (remplace WhatsApp click)
+export async function incrementContactCount(productId: string, sellerId: string): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'products', productId), { whatsappClickCount: increment(1) });
+    await updateDoc(doc(db, 'users', sellerId), { contactCount: increment(1) });
+  } catch(e) { console.error('[contactCount]', e); }
+}
+
 /**
  * Limite de publication
  */

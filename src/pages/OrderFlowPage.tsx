@@ -2,7 +2,7 @@
 // Flow complet acheteur : Récapitulatif → Paiement → Upload preuve
 import React, { useState, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { createOrder, submitProof, calcOrderFees } from '@/services/orderService';
+import { createOrder, submitProof } from '@/services/orderService';
 import { Product, MOBILE_PAYMENT_METHODS, PaymentInfo } from '@/types';
 
 interface OrderFlowPageProps {
@@ -25,7 +25,7 @@ export function OrderFlowPage({ product, onBack, onOrderCreated }: OrderFlowPage
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  const { brumerieFee, sellerReceives } = calcOrderFees(product.price);
+
 
   const sellerPayments: PaymentInfo[] = (product as any).paymentMethods || [];
 
@@ -106,22 +106,26 @@ export function OrderFlowPage({ product, onBack, onOrderCreated }: OrderFlowPage
           </div>
         </div>
 
-        {/* Détail commission transparent */}
-        <div className="bg-blue-50 rounded-3xl p-5 border border-blue-100">
-          <p className="text-[10px] font-black text-blue-800 uppercase tracking-widest mb-4">Détail du prix</p>
+        {/* Détail du prix — frais de livraison si applicable */}
+        <div className="bg-slate-50 rounded-3xl p-5 border border-slate-100">
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Récapitulatif</p>
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <span className="text-[12px] text-slate-600 font-medium">Prix de l'article</span>
               <span className="font-black text-slate-900 text-[13px]">{product.price.toLocaleString('fr-FR')} FCFA</span>
             </div>
+            {deliveryType === 'delivery' && (product as any).deliveryPriceOtherZone > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-[12px] text-slate-500 font-medium">Frais de livraison</span>
+                <span className="font-bold text-slate-600 text-[12px]">+ {((product as any).deliveryPriceOtherZone || 0).toLocaleString('fr-FR')} FCFA</span>
+              </div>
+            )}
+            <div className="h-px bg-slate-200 my-2" />
             <div className="flex justify-between items-center">
-              <span className="text-[12px] text-slate-500 font-medium">Commission Brumerie (5%)</span>
-              <span className="font-bold text-slate-500 text-[12px]">- {brumerieFee.toLocaleString('fr-FR')} FCFA</span>
-            </div>
-            <div className="h-px bg-blue-200 my-2" />
-            <div className="flex justify-between items-center">
-              <span className="text-[12px] font-black text-blue-800 uppercase">Vendeur reçoit</span>
-              <span className="font-black text-blue-700 text-[15px]">{sellerReceives.toLocaleString('fr-FR')} FCFA</span>
+              <span className="text-[12px] font-black text-slate-800 uppercase">Total à envoyer</span>
+              <span className="font-black text-green-700 text-[15px]">
+                {(product.price + (deliveryType === 'delivery' ? ((product as any).deliveryPriceOtherZone || 0) : 0)).toLocaleString('fr-FR')} FCFA
+              </span>
             </div>
           </div>
         </div>

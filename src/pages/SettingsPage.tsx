@@ -1,4 +1,5 @@
-import React from 'react';
+// src/pages/SettingsPage.tsx — Sprint 5 fix
+import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { MOBILE_PAYMENT_METHODS, PaymentInfo } from '@/types';
 import { updateUserProfile } from '@/services/userService';
@@ -13,26 +14,6 @@ function SettingItem({ icon, label, sublabel, onClick, danger, badge, badgeBlue 
   icon: React.ReactNode; label: string; sublabel?: string;
   onClick: () => void; danger?: boolean; badge?: string; badgeBlue?: boolean;
 }) {
-  const handleSavePaymentMethod = async () => {
-    if (!currentUser || !newPM.phone.trim() || !newPM.holderName.trim()) return;
-    setSavingPM(true);
-    const updated = [...paymentMethods, { method: newPM.method, phone: newPM.phone.trim(), holderName: newPM.holderName.trim() }];
-    await updateUserProfile(currentUser.uid, { defaultPaymentMethods: updated });
-    await refreshUserProfile();
-    setPaymentMethods(updated);
-    setNewPM({ method: 'wave', phone: '', holderName: '' });
-    setAddingPayment(false);
-    setSavingPM(false);
-  };
-
-  const handleDeletePaymentMethod = async (idx: number) => {
-    if (!currentUser) return;
-    const updated = paymentMethods.filter((_, i) => i !== idx);
-    await updateUserProfile(currentUser.uid, { defaultPaymentMethods: updated });
-    await refreshUserProfile();
-    setPaymentMethods(updated);
-  };
-
   return (
     <button onClick={onClick}
       className="w-full flex items-center gap-4 px-6 py-5 hover:bg-slate-50 active:bg-slate-100 transition-all text-left group">
@@ -44,7 +25,7 @@ function SettingItem({ icon, label, sublabel, onClick, danger, badge, badgeBlue 
         {sublabel && <p className="text-[10px] text-slate-400 font-medium mt-0.5 leading-tight">{sublabel}</p>}
       </div>
       {badge && (
-        <span className={`text-[9px] font-black px-3 py-1.5 rounded-full shadow-lg mr-1 uppercase tracking-widest text-white ${badgeBlue ? 'bg-[#1D9BF0] shadow-blue-100' : 'bg-[#1D9BF0] shadow-blue-100'}`}>
+        <span className="text-[9px] font-black px-3 py-1.5 rounded-full shadow-lg mr-1 uppercase tracking-widest text-white bg-[#1D9BF0] shadow-blue-100">
           {badge}
         </span>
       )}
@@ -67,8 +48,40 @@ function SettingSection({ title, children }: { title: string; children: React.Re
 }
 
 export function SettingsPage({ onBack, onNavigate, role = 'seller' }: SettingsPageProps) {
-  const { userProfile, signOut } = useAuth();
+  const { currentUser, userProfile, signOut, refreshUserProfile } = useAuth();
   const isBuyer = role === 'buyer';
+
+  // ── État paiement mobile ──────────────────────────────────
+  const [paymentMethods, setPaymentMethods] = useState<PaymentInfo[]>(
+    userProfile?.defaultPaymentMethods || []
+  );
+  const [addingPayment, setAddingPayment] = useState(false);
+  const [newPM, setNewPM] = useState({ method: 'wave', phone: '', holderName: '' });
+  const [savingPM, setSavingPM] = useState(false);
+
+  const handleSavePaymentMethod = async () => {
+    if (!currentUser || !newPM.phone.trim() || !newPM.holderName.trim()) return;
+    setSavingPM(true);
+    const updated = [...paymentMethods, {
+      method: newPM.method,
+      phone: newPM.phone.trim(),
+      holderName: newPM.holderName.trim(),
+    }];
+    await updateUserProfile(currentUser.uid, { defaultPaymentMethods: updated });
+    await refreshUserProfile();
+    setPaymentMethods(updated);
+    setNewPM({ method: 'wave', phone: '', holderName: '' });
+    setAddingPayment(false);
+    setSavingPM(false);
+  };
+
+  const handleDeletePaymentMethod = async (idx: number) => {
+    if (!currentUser) return;
+    const updated = paymentMethods.filter((_, i) => i !== idx);
+    await updateUserProfile(currentUser.uid, { defaultPaymentMethods: updated });
+    await refreshUserProfile();
+    setPaymentMethods(updated);
+  };
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-12 font-sans">
@@ -85,19 +98,16 @@ export function SettingsPage({ onBack, onNavigate, role = 'seller' }: SettingsPa
 
       <div className="px-5 pt-8">
 
-        {/* ── Carte profil cliquable → redirige vers profil/boutique ── */}
-        <button
-          onClick={() => onNavigate('profile')}
-          className="w-full bg-white rounded-[2.5rem] p-6 mb-10 flex items-center gap-5 border border-slate-100 shadow-2xl shadow-slate-200/40 active:scale-[0.98] transition-all text-left"
-        >
+        {/* Carte profil cliquable */}
+        <button onClick={() => onNavigate('profile')}
+          className="w-full bg-white rounded-[2.5rem] p-6 mb-10 flex items-center gap-5 border border-slate-100 shadow-2xl shadow-slate-200/40 active:scale-[0.98] transition-all text-left">
           <div className="w-16 h-16 rounded-[1.8rem] overflow-hidden bg-slate-100 border-4 border-white shadow-inner flex-shrink-0">
-            {userProfile?.photoURL ? (
-              <img src={userProfile.photoURL} alt="" className="w-full h-full object-cover"/>
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <span className="text-slate-500 font-black text-2xl">{userProfile?.name?.charAt(0)?.toUpperCase()}</span>
-              </div>
-            )}
+            {userProfile?.photoURL
+              ? <img src={userProfile.photoURL} alt="" className="w-full h-full object-cover"/>
+              : <div className="w-full h-full flex items-center justify-center">
+                  <span className="text-slate-500 font-black text-2xl">{userProfile?.name?.charAt(0)?.toUpperCase()}</span>
+                </div>
+            }
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-black text-slate-900 text-base truncate tracking-tight">{userProfile?.name}</p>
@@ -111,7 +121,6 @@ export function SettingsPage({ onBack, onNavigate, role = 'seller' }: SettingsPa
               )}
             </div>
           </div>
-          {/* Badge vérifié — BLEU */}
           {userProfile?.isVerified && (
             <div className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg flex-shrink-0"
               style={{ background: '#1D9BF0', boxShadow: '0 4px 14px rgba(29,155,240,0.3)' }}>
@@ -120,7 +129,6 @@ export function SettingsPage({ onBack, onNavigate, role = 'seller' }: SettingsPa
               </svg>
             </div>
           )}
-          {/* Flèche → boutique/profil */}
           <svg width="18" height="18" fill="none" viewBox="0 0 24 24" className="text-slate-200 ml-1 flex-shrink-0">
             <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
@@ -140,9 +148,66 @@ export function SettingsPage({ onBack, onNavigate, role = 'seller' }: SettingsPa
             sublabel={userProfile?.isVerified ? 'Ton badge est actif' : 'Boost ta crédibilité pour 2 000 FCFA'}
             onClick={() => onNavigate('verification')}
             badge={userProfile?.isVerified ? '✓ ACTIF' : undefined}
-            badgeBlue={true}
+            badgeBlue
           />
         </SettingSection>
+
+        {/* Paiement mobile — vendeurs seulement */}
+        {!isBuyer && (
+          <SettingSection title="Moyens de paiement mobile">
+            <div className="px-4 py-4 space-y-3">
+              {paymentMethods.map((pm, idx) => {
+                const m = MOBILE_PAYMENT_METHODS.find(x => x.id === pm.method);
+                return (
+                  <div key={idx} className="flex items-center gap-3 bg-slate-50 rounded-2xl px-4 py-3 border border-slate-100">
+                    <span className="text-xl">{m?.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-black text-slate-900 text-[11px]">{m?.name}</p>
+                      <p className="text-slate-500 text-[10px] font-bold">{pm.phone} · {pm.holderName}</p>
+                    </div>
+                    <button onClick={() => handleDeletePaymentMethod(idx)}
+                      className="w-7 h-7 bg-red-50 rounded-xl flex items-center justify-center">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="3"><path d="M18 6L6 18M6 6l12 12" strokeLinecap="round"/></svg>
+                    </button>
+                  </div>
+                );
+              })}
+              {!addingPayment ? (
+                <button onClick={() => setAddingPayment(true)}
+                  className="w-full flex items-center justify-center gap-2 bg-green-50 border-2 border-dashed border-green-200 rounded-2xl py-4 text-green-700 font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Ajouter un numéro
+                </button>
+              ) : (
+                <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nouveau moyen de paiement</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {MOBILE_PAYMENT_METHODS.map(m => (
+                      <button key={m.id} onClick={() => setNewPM(p => ({ ...p, method: m.id }))}
+                        className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all ${newPM.method === m.id ? 'border-green-500 bg-green-50' : 'border-slate-100 bg-slate-50'}`}>
+                        <span>{m.icon}</span>
+                        <span className="text-[10px] font-black text-slate-700">{m.name.split(' ')[0]}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <input value={newPM.phone} onChange={e => setNewPM(p => ({ ...p, phone: e.target.value }))}
+                    placeholder="Numéro (ex: 0700000000)" type="tel"
+                    className="w-full bg-slate-50 rounded-xl px-4 py-3 text-[12px] border-2 border-transparent focus:border-green-400 outline-none font-mono"/>
+                  <input value={newPM.holderName} onChange={e => setNewPM(p => ({ ...p, holderName: e.target.value }))}
+                    placeholder="Nom du titulaire"
+                    className="w-full bg-slate-50 rounded-xl px-4 py-3 text-[12px] border-2 border-transparent focus:border-green-400 outline-none"/>
+                  <div className="flex gap-2">
+                    <button onClick={() => setAddingPayment(false)} className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-500 font-black text-[10px] uppercase">Annuler</button>
+                    <button onClick={handleSavePaymentMethod} disabled={savingPM || !newPM.phone.trim() || !newPM.holderName.trim()}
+                      className="flex-1 py-3 rounded-xl bg-green-600 text-white font-black text-[10px] uppercase disabled:opacity-40 active:scale-95 transition-all">
+                      {savingPM ? '...' : 'Enregistrer'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </SettingSection>
+        )}
 
         {/* Changer de mode */}
         <SettingSection title="Mon mode">
@@ -159,86 +224,22 @@ export function SettingsPage({ onBack, onNavigate, role = 'seller' }: SettingsPa
 
         {/* Informations */}
         <SettingSection title="Informations">
-          <SettingItem
-            icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>}
-            label="Confidentialité" sublabel="Protection de tes données" onClick={() => onNavigate('privacy')} />
-          <SettingItem
-            icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>}
-            label="Conditions d'utilisation" sublabel="Les règles de Brumerie" onClick={() => onNavigate('terms')} />
-          <SettingItem
-            icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>}
-            label="À propos" sublabel="MVP 1.0 · Fait à Abidjan 🇨🇮" onClick={() => onNavigate('about')} />
+          <SettingItem icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>}
+            label="Confidentialité" sublabel="Protection de tes données" onClick={() => onNavigate('privacy')}/>
+          <SettingItem icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>}
+            label="Conditions d'utilisation" sublabel="Les règles de Brumerie" onClick={() => onNavigate('terms')}/>
+          <SettingItem icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>}
+            label="À propos" sublabel="MVP 1.0 · Fait à Abidjan 🇨🇮" onClick={() => onNavigate('about')}/>
         </SettingSection>
 
-        {/* Assistance — texte amélioré */}
+        {/* Assistance */}
         <SettingSection title="Assistance">
-          <SettingItem
-            icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>}
-            label="Support & Aide"
-            sublabel="Comment publier · Ajouter une photo de profil pour plus de confiance"
-            onClick={() => onNavigate('support')}
-          />
+          <SettingItem icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>}
+            label="Support & Aide" sublabel="Comment publier · Ajouter une photo de profil"
+            onClick={() => onNavigate('support')}/>
         </SettingSection>
 
-        {/* Coordonnées de paiement mobile */}
-      {role === 'seller' && (
-        <div className="px-6 mb-6">
-          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Paiement mobile</h3>
-          <div className="space-y-3">
-            {paymentMethods.map((pm, idx) => {
-              const m = MOBILE_PAYMENT_METHODS.find(x => x.id === pm.method);
-              return (
-                <div key={idx} className="flex items-center gap-3 bg-slate-50 rounded-2xl px-4 py-3 border border-slate-100">
-                  <span className="text-xl">{m?.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-black text-slate-900 text-[11px]">{m?.name}</p>
-                    <p className="text-slate-500 text-[10px] font-bold">{pm.phone} · {pm.holderName}</p>
-                  </div>
-                  <button onClick={() => handleDeletePaymentMethod(idx)}
-                    className="w-7 h-7 bg-red-50 rounded-xl flex items-center justify-center">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="3"><path d="M18 6L6 18M6 6l12 12" strokeLinecap="round"/></svg>
-                  </button>
-                </div>
-              );
-            })}
-            {!addingPayment ? (
-              <button onClick={() => setAddingPayment(true)}
-                className="w-full flex items-center justify-center gap-2 bg-green-50 border-2 border-dashed border-green-200 rounded-2xl py-4 text-green-700 font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Ajouter un numéro
-              </button>
-            ) : (
-              <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nouveau numéro</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {MOBILE_PAYMENT_METHODS.map(m => (
-                    <button key={m.id} onClick={() => setNewPM(p => ({ ...p, method: m.id }))}
-                      className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all ${newPM.method === m.id ? 'border-green-500 bg-green-50' : 'border-slate-100 bg-slate-50'}`}>
-                      <span>{m.icon}</span>
-                      <span className="text-[10px] font-black text-slate-700">{m.name.split(' ')[0]}</span>
-                    </button>
-                  ))}
-                </div>
-                <input value={newPM.phone} onChange={e => setNewPM(p => ({ ...p, phone: e.target.value }))}
-                  placeholder="Numéro (ex: 0700000000)" type="tel"
-                  className="w-full bg-slate-50 rounded-xl px-4 py-3 text-[12px] border-2 border-transparent focus:border-green-400 outline-none font-mono" />
-                <input value={newPM.holderName} onChange={e => setNewPM(p => ({ ...p, holderName: e.target.value }))}
-                  placeholder="Nom du titulaire"
-                  className="w-full bg-slate-50 rounded-xl px-4 py-3 text-[12px] border-2 border-transparent focus:border-green-400 outline-none" />
-                <div className="flex gap-2">
-                  <button onClick={() => setAddingPayment(false)} className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-500 font-black text-[10px] uppercase tracking-widest">Annuler</button>
-                  <button onClick={handleSavePaymentMethod} disabled={savingPM || !newPM.phone.trim() || !newPM.holderName.trim()}
-                    className="flex-1 py-3 rounded-xl bg-green-600 text-white font-black text-[10px] uppercase tracking-widest disabled:opacity-40 active:scale-95 transition-all">
-                    {savingPM ? '...' : 'Enregistrer'}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Déconnexion */}
+        {/* Déconnexion */}
         <div className="mt-6 px-2">
           <button onClick={() => { if(confirm('Voulez-vous vous déconnecter ?')) signOut(); }}
             className="w-full py-5 rounded-[2rem] bg-red-50 border-2 border-red-100 text-red-500 font-black uppercase tracking-[0.2em] text-[11px] active:scale-95 transition-all">

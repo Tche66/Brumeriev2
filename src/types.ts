@@ -21,9 +21,10 @@ export interface User {
   bookmarkedProductIds?: string[];
   // Paiement mobile — coordonnées par défaut
   defaultPaymentMethods?: PaymentInfo[];
-  // Notation silencieuse — prêt pour Sprint 4
+  // Notation — visible Sprint 5
   rating?: number;
   reviewCount?: number;
+  contactCount?: number; // compteur de contacts (anciennement WhatsApp)
 }
 
 export interface Product {
