@@ -12,6 +12,7 @@ interface ProductDetailPageProps {
   onBack: () => void;
   onSellerClick: (sellerId: string) => void;
   onStartChat?: (convId: string) => void;
+  onBuyClick?: (product: any) => void;
 }
 
 const CATEGORIES_MAP: Record<string, string> = {
@@ -19,7 +20,7 @@ const CATEGORIES_MAP: Record<string, string> = {
   beauty: 'Beauté', sports: 'Sport', books: 'Livres', toys: 'Jouets', other: 'Autre',
 };
 
-export function ProductDetailPage({ product, onBack, onSellerClick, onStartChat }: ProductDetailPageProps) {
+export function ProductDetailPage({ product, onBack, onSellerClick, onStartChat, onBuyClick }: ProductDetailPageProps) {
   const { currentUser } = useAuth();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
@@ -315,28 +316,36 @@ export function ProductDetailPage({ product, onBack, onSellerClick, onStartChat 
           </button>
         </div>
         <div className="p-4 pt-2">
-          <button
-            onClick={product.status !== 'sold' && currentUser?.uid !== product.sellerId ? handleStartChat : undefined}
-            disabled={product.status === 'sold' || startingChat || currentUser?.uid === product.sellerId}
-            className={`w-full py-5 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all active:scale-95 ${
-              product.status === 'sold' ? 'bg-slate-100 text-slate-300' :
-              currentUser?.uid === product.sellerId ? 'bg-slate-100 text-slate-400' :
-              'text-white shadow-xl shadow-blue-200'
-            }`}
-            style={product.status !== 'sold' && currentUser?.uid !== product.sellerId ? { background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)' } : {}}
-          >
-            {startingChat ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : product.status === 'sold' ? 'VENDU' :
-              currentUser?.uid === product.sellerId ? 'TON ANNONCE' : (
-              <>
+          {product.status === 'sold' ? (
+            <div className="w-full py-5 rounded-2xl bg-slate-100 text-slate-300 font-black text-[11px] uppercase tracking-[0.2em] flex items-center justify-center">
+              VENDU
+            </div>
+          ) : currentUser?.uid === product.sellerId ? (
+            <div className="w-full py-4 rounded-2xl bg-slate-50 text-slate-400 font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center">
+              Ton annonce
+            </div>
+          ) : (
+            <div className="flex gap-3">
+              {/* Bouton Discuter */}
+              <button onClick={handleStartChat} disabled={startingChat}
+                className="flex-1 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 bg-slate-100 text-slate-700 active:scale-95 transition-all disabled:opacity-50">
+                {startingChat
+                  ? <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-700 rounded-full animate-spin" />
+                  : <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Discuter</>
+                }
+              </button>
+              {/* Bouton Acheter */}
+              <button
+                onClick={() => onBuyClick?.(product)}
+                className="flex-[2] py-5 rounded-2xl font-black text-[11px] uppercase tracking-widest text-white flex items-center justify-center gap-2 shadow-xl shadow-green-200 active:scale-95 transition-all"
+                style={{ background: 'linear-gradient(135deg, #16A34A, #115E2E)' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                  <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
                 </svg>
-                Discuter avec le vendeur
-              </>
-            )}
-          </button>
+                Acheter
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

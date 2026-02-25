@@ -1,5 +1,7 @@
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { MOBILE_PAYMENT_METHODS, PaymentInfo } from '@/types';
+import { updateUserProfile } from '@/services/userService';
 
 interface SettingsPageProps {
   onBack: () => void;
@@ -11,6 +13,26 @@ function SettingItem({ icon, label, sublabel, onClick, danger, badge, badgeBlue 
   icon: React.ReactNode; label: string; sublabel?: string;
   onClick: () => void; danger?: boolean; badge?: string; badgeBlue?: boolean;
 }) {
+  const handleSavePaymentMethod = async () => {
+    if (!currentUser || !newPM.phone.trim() || !newPM.holderName.trim()) return;
+    setSavingPM(true);
+    const updated = [...paymentMethods, { method: newPM.method, phone: newPM.phone.trim(), holderName: newPM.holderName.trim() }];
+    await updateUserProfile(currentUser.uid, { defaultPaymentMethods: updated });
+    await refreshUserProfile();
+    setPaymentMethods(updated);
+    setNewPM({ method: 'wave', phone: '', holderName: '' });
+    setAddingPayment(false);
+    setSavingPM(false);
+  };
+
+  const handleDeletePaymentMethod = async (idx: number) => {
+    if (!currentUser) return;
+    const updated = paymentMethods.filter((_, i) => i !== idx);
+    await updateUserProfile(currentUser.uid, { defaultPaymentMethods: updated });
+    await refreshUserProfile();
+    setPaymentMethods(updated);
+  };
+
   return (
     <button onClick={onClick}
       className="w-full flex items-center gap-4 px-6 py-5 hover:bg-slate-50 active:bg-slate-100 transition-all text-left group">
@@ -158,7 +180,65 @@ export function SettingsPage({ onBack, onNavigate, role = 'seller' }: SettingsPa
           />
         </SettingSection>
 
-        {/* Déconnexion */}
+        {/* Coordonnées de paiement mobile */}
+      {role === 'seller' && (
+        <div className="px-6 mb-6">
+          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Paiement mobile</h3>
+          <div className="space-y-3">
+            {paymentMethods.map((pm, idx) => {
+              const m = MOBILE_PAYMENT_METHODS.find(x => x.id === pm.method);
+              return (
+                <div key={idx} className="flex items-center gap-3 bg-slate-50 rounded-2xl px-4 py-3 border border-slate-100">
+                  <span className="text-xl">{m?.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-black text-slate-900 text-[11px]">{m?.name}</p>
+                    <p className="text-slate-500 text-[10px] font-bold">{pm.phone} · {pm.holderName}</p>
+                  </div>
+                  <button onClick={() => handleDeletePaymentMethod(idx)}
+                    className="w-7 h-7 bg-red-50 rounded-xl flex items-center justify-center">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="3"><path d="M18 6L6 18M6 6l12 12" strokeLinecap="round"/></svg>
+                  </button>
+                </div>
+              );
+            })}
+            {!addingPayment ? (
+              <button onClick={() => setAddingPayment(true)}
+                className="w-full flex items-center justify-center gap-2 bg-green-50 border-2 border-dashed border-green-200 rounded-2xl py-4 text-green-700 font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Ajouter un numéro
+              </button>
+            ) : (
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nouveau numéro</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {MOBILE_PAYMENT_METHODS.map(m => (
+                    <button key={m.id} onClick={() => setNewPM(p => ({ ...p, method: m.id }))}
+                      className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all ${newPM.method === m.id ? 'border-green-500 bg-green-50' : 'border-slate-100 bg-slate-50'}`}>
+                      <span>{m.icon}</span>
+                      <span className="text-[10px] font-black text-slate-700">{m.name.split(' ')[0]}</span>
+                    </button>
+                  ))}
+                </div>
+                <input value={newPM.phone} onChange={e => setNewPM(p => ({ ...p, phone: e.target.value }))}
+                  placeholder="Numéro (ex: 0700000000)" type="tel"
+                  className="w-full bg-slate-50 rounded-xl px-4 py-3 text-[12px] border-2 border-transparent focus:border-green-400 outline-none font-mono" />
+                <input value={newPM.holderName} onChange={e => setNewPM(p => ({ ...p, holderName: e.target.value }))}
+                  placeholder="Nom du titulaire"
+                  className="w-full bg-slate-50 rounded-xl px-4 py-3 text-[12px] border-2 border-transparent focus:border-green-400 outline-none" />
+                <div className="flex gap-2">
+                  <button onClick={() => setAddingPayment(false)} className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-500 font-black text-[10px] uppercase tracking-widest">Annuler</button>
+                  <button onClick={handleSavePaymentMethod} disabled={savingPM || !newPM.phone.trim() || !newPM.holderName.trim()}
+                    className="flex-1 py-3 rounded-xl bg-green-600 text-white font-black text-[10px] uppercase tracking-widest disabled:opacity-40 active:scale-95 transition-all">
+                    {savingPM ? '...' : 'Enregistrer'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Déconnexion */}
         <div className="mt-6 px-2">
           <button onClick={() => { if(confirm('Voulez-vous vous déconnecter ?')) signOut(); }}
             className="w-full py-5 rounded-[2rem] bg-red-50 border-2 border-red-100 text-red-500 font-black uppercase tracking-[0.2em] text-[11px] active:scale-95 transition-all">

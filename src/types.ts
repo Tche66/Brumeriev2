@@ -19,6 +19,8 @@ export interface User {
   bio?: string;
   // Favoris — stockés directement dans le profil utilisateur
   bookmarkedProductIds?: string[];
+  // Paiement mobile — coordonnées par défaut
+  defaultPaymentMethods?: PaymentInfo[];
   // Notation silencieuse — prêt pour Sprint 4
   rating?: number;
   reviewCount?: number;
@@ -40,6 +42,7 @@ export interface Product {
   whatsappClickCount: number;
   status: 'active' | 'sold' | 'deleted';
   neighborhoods?: string[]; // multi-ville vendeur
+  paymentMethods?: PaymentInfo[]; // Wave/OM/MTN/Moov du vendeur pour ce produit
   // Notation produit — fondations silencieuses Sprint 4
   sellerRating?: number;
   sellerReviewCount?: number;
@@ -171,4 +174,72 @@ export interface Conversation {
   lastSenderId: string;
   unreadCount: Record<string, number>;  // { uid: count }
   createdAt: any;
+}
+
+// ─── PAIEMENT MOBILE CI ────────────────────────────────────
+
+export const BRUMERIE_FEE_PERCENT = 5; // 5% sur montant brut
+
+export const MOBILE_PAYMENT_METHODS = [
+  { id: 'wave',   name: 'Wave',            color: '#1BA7FF', icon: '💙' },
+  { id: 'orange', name: 'Orange Money',    color: '#FF6600', icon: '🧡' },
+  { id: 'mtn',    name: 'MTN Mobile Money',color: '#FFCC00', icon: '💛' },
+  { id: 'moov',   name: 'Moov Money',      color: '#0066CC', icon: '💙' },
+];
+
+export type OrderStatus =
+  | 'initiated'   // acheteur a cliqué "Finaliser" — intention d'achat
+  | 'proof_sent'  // acheteur a uploadé preuve + ID transaction
+  | 'confirmed'   // vendeur a cliqué "J'ai reçu ✓"
+  | 'delivered'   // acheteur a confirmé réception physique
+  | 'disputed'    // litige ouvert — vendeur bloqué
+  | 'cancelled';  // annulé
+
+export interface PaymentInfo {
+  method: string;       // 'wave' | 'orange' | 'mtn' | 'moov'
+  phone: string;        // numéro du vendeur pour cet article
+  holderName: string;   // nom du titulaire
+}
+
+export interface OrderProof {
+  screenshotUrl: string;   // Cloudinary URL
+  transactionRef: string;  // ID saisi manuellement
+  submittedAt: any;
+}
+
+export interface Order {
+  id: string;
+  // ── Parties ─────────────────────────────────────────────
+  buyerId: string;
+  buyerName: string;
+  buyerPhoto?: string;
+  sellerId: string;
+  sellerName: string;
+  sellerPhoto?: string;
+  // ── Produit ─────────────────────────────────────────────
+  productId: string;
+  productTitle: string;
+  productImage: string;
+  productPrice: number;
+  // ── Montants ─────────────────────────────────────────────
+  brumerieFee: number;       // 5% → revenu Brumerie
+  sellerReceives: number;    // 95% → vendeur
+  // ── Paiement Mobile ─────────────────────────────────────
+  paymentInfo: PaymentInfo;  // coordonnées paiement vendeur
+  proof?: OrderProof;        // preuve uploadée par l'acheteur
+  // ── Statut & Timers ──────────────────────────────────────
+  status: OrderStatus;
+  reminderSentAt?: any;      // rappel 6h envoyé
+  autoDisputeAt?: any;       // deadline 24h → signalement auto
+  disputeReason?: string;
+  sellerBlocked?: boolean;
+  // ── Timestamps ───────────────────────────────────────────
+  createdAt: any;
+  proofSentAt?: any;
+  confirmedAt?: any;
+  deliveredAt?: any;
+  disputedAt?: any;
+  cancelledAt?: any;
+  // ── Type de remise ───────────────────────────────────────
+  deliveryType?: 'delivery' | 'in_person'; // livraison ou main propre
 }

@@ -21,6 +21,8 @@ import { ChatPage } from '@/pages/ChatPage';
 import { BottomNav } from '@/components/BottomNav';
 import { Product, Conversation } from '@/types';
 import { NotificationsPage } from '@/pages/NotificationsPage';
+import { OrderFlowPage } from '@/pages/OrderFlowPage';
+import { OrderStatusPage } from '@/pages/OrderStatusPage';
 import { ToastContainer } from '@/components/ToastNotification';
 import { useToast } from '@/hooks/useToast';
 import { subscribeToNotifications } from '@/services/notificationService';
@@ -29,7 +31,8 @@ type Page =
   | 'home' | 'profile' | 'sell' | 'messages'
   | 'product-detail' | 'seller-profile' | 'chat'
   | 'edit-profile' | 'verification' | 'support'
-  | 'settings' | 'privacy' | 'terms' | 'about' | 'notifications';
+  | 'settings' | 'privacy' | 'terms' | 'about' | 'notifications'
+  | 'order-flow' | 'order-status';
 
 // ── AuthGate ─────────────────────────────────────────────────
 function AuthGate() {
@@ -98,6 +101,8 @@ function AppContent() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedSellerId, setSelectedSellerId] = useState<string | null>(null);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [orderFlowProduct, setOrderFlowProduct] = useState<any>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<string>('');
   const [navigationHistory, setNavigationHistory] = useState<Page[]>(['home']);
   const [showRoleSwitch, setShowRoleSwitch] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
@@ -192,6 +197,7 @@ function AppContent() {
 
   const handleNavigate = (p: string) => {
     if (p === 'switch-to-seller' || p === 'switch-to-buyer') { setShowRoleSwitch(true); return; }
+    if (p === 'orders') { setSelectedOrderId(''); navigate('order-status'); return; }
     navigate(p as Page);
   };
 
@@ -218,6 +224,10 @@ function AppContent() {
             product={selectedProduct} onBack={goBack}
             onSellerClick={handleSellerClick}
             onStartChat={handleStartChat}
+            onBuyClick={(product) => {
+              setOrderFlowProduct(product);
+              navigate('order-flow');
+            }}
           />
         )}
         {activePage === 'seller-profile' && selectedSellerId && (
@@ -251,6 +261,22 @@ function AppContent() {
             onOpenConversation={async (convId) => {
               await handleStartChat(convId);
             }}
+          />
+        )}
+        {activePage === 'order-flow' && orderFlowProduct && (
+          <OrderFlowPage
+            product={orderFlowProduct}
+            onBack={goBack}
+            onOrderCreated={(orderId) => {
+              setSelectedOrderId(orderId);
+              navigate('order-status');
+            }}
+          />
+        )}
+        {activePage === 'order-status' && (
+          <OrderStatusPage
+            orderId={selectedOrderId || undefined}
+            onBack={goBack}
           />
         )}
       </main>
