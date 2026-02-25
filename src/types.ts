@@ -133,3 +133,42 @@ export const VERIFICATION_PRICE = 2000;
 export const VERIFICATION_WHATSAPP = '22586867693';
 export const SUPPORT_EMAIL = 'brumerieciv.email@gmail.com';
 export const SUPPORT_WHATSAPP = '22586867693';
+
+// ─── MESSAGERIE ────────────────────────────────────────────
+
+export interface Message {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  senderName: string;
+  senderPhoto?: string;
+  text: string;
+  type: 'text' | 'product_card' | 'system';
+  // Pour type='product_card' — fiche produit partagée
+  productRef?: {
+    id: string;
+    title: string;
+    price: number;
+    image: string;
+    neighborhood: string;
+  };
+  readBy: string[];       // UIDs qui ont lu
+  createdAt: any;         // Firestore Timestamp
+  reported?: boolean;
+}
+
+export interface Conversation {
+  id: string;
+  participants: string[];               // [buyerId, sellerId]
+  participantNames: Record<string, string>;
+  participantPhotos: Record<string, string>;
+  productId: string;
+  productTitle: string;
+  productImage: string;
+  productPrice: number;
+  lastMessage: string;
+  lastMessageAt: any;                   // Firestore Timestamp
+  lastSenderId: string;
+  unreadCount: Record<string, number>;  // { uid: count }
+  createdAt: any;
+}

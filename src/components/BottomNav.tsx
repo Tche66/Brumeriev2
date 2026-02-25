@@ -1,17 +1,18 @@
-// src/components/BottomNav.tsx — Navigation adaptée au rôle
+// src/components/BottomNav.tsx — Navigation avec messagerie
 import React from 'react';
 
 interface BottomNavProps {
   activePage: string;
   onNavigate: (page: string) => void;
   role?: 'buyer' | 'seller';
+  unreadMessages?: number;
 }
 
-export function BottomNav({ activePage, onNavigate, role = 'seller' }: BottomNavProps) {
+export function BottomNav({ activePage, onNavigate, role = 'seller', unreadMessages = 0 }: BottomNavProps) {
 
-  // ── Navigation ACHETEUR ──────────────────────────────
+  // ── ACHETEUR : Accueil | Messages | Profil ──────────────
   if (role === 'buyer') {
-    const buyerItems = [
+    const items = [
       {
         id: 'home', label: 'Accueil',
         icon: (active: boolean) => (
@@ -24,7 +25,17 @@ export function BottomNav({ activePage, onNavigate, role = 'seller' }: BottomNav
         ),
       },
       {
-        id: 'profile', label: 'Mon Profil',
+        id: 'messages', label: 'Messages', hasUnread: unreadMessages > 0,
+        icon: (active: boolean) => (
+          <svg width="22" height="22" viewBox="0 0 24 24"
+            fill={active ? '#3B82F6' : 'none'}
+            stroke={active ? '#3B82F6' : '#94A3B8'} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+        ),
+      },
+      {
+        id: 'profile', label: 'Profil',
         icon: (active: boolean) => (
           <svg width="22" height="22" viewBox="0 0 24 24"
             fill={active ? '#3B82F6' : 'none'}
@@ -39,13 +50,19 @@ export function BottomNav({ activePage, onNavigate, role = 'seller' }: BottomNav
     return (
       <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-100 z-50"
         style={{ maxWidth: 480, margin: '0 auto', left: '50%', transform: 'translateX(-50%)', width: '100%' }}>
-        <div className="flex items-center justify-around h-16 px-10">
-          {buyerItems.map((item) => {
+        <div className="flex items-center justify-around h-16 px-4">
+          {items.map((item) => {
             const isActive = activePage === item.id;
             return (
               <button key={item.id} onClick={() => onNavigate(item.id)}
-                className="flex flex-col items-center gap-1 px-6 py-2 transition-all active:scale-90">
+                className="flex flex-col items-center gap-1 px-4 py-2 transition-all active:scale-90 relative">
                 {item.icon(isActive)}
+                {/* Badge non-lu */}
+                {item.hasUnread && (
+                  <div className="absolute -top-0.5 right-2 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center border-2 border-white">
+                    <span className="text-[7px] font-black text-white">{unreadMessages > 9 ? '9+' : unreadMessages}</span>
+                  </div>
+                )}
                 <span className={`text-[9px] font-bold uppercase tracking-widest transition-colors ${isActive ? 'text-blue-500' : 'text-slate-400'}`}>
                   {item.label}
                 </span>
@@ -58,10 +75,10 @@ export function BottomNav({ activePage, onNavigate, role = 'seller' }: BottomNav
     );
   }
 
-  // ── Navigation VENDEUR ──────────────────────────────
+  // ── VENDEUR : Accueil | + | Messages | Boutique ─────────
   const sellerItems = [
     {
-      id: 'home', label: 'Accueil',
+      id: 'home', label: 'Accueil', isSpecial: false,
       icon: (active: boolean) => (
         <svg width="22" height="22" viewBox="0 0 24 24"
           fill={active ? '#16A34A' : 'none'}
@@ -80,7 +97,17 @@ export function BottomNav({ activePage, onNavigate, role = 'seller' }: BottomNav
       ),
     },
     {
-      id: 'profile', label: 'Ma Boutique',
+      id: 'messages', label: 'Messages', isSpecial: false, hasUnread: unreadMessages > 0,
+      icon: (active: boolean) => (
+        <svg width="22" height="22" viewBox="0 0 24 24"
+          fill={active ? '#16A34A' : 'none'}
+          stroke={active ? '#16A34A' : '#94A3B8'} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+      ),
+    },
+    {
+      id: 'profile', label: 'Boutique', isSpecial: false,
       icon: (active: boolean) => (
         <svg width="22" height="22" viewBox="0 0 24 24"
           fill={active ? '#16A34A' : 'none'}
@@ -95,7 +122,7 @@ export function BottomNav({ activePage, onNavigate, role = 'seller' }: BottomNav
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-100 z-50"
       style={{ maxWidth: 480, margin: '0 auto', left: '50%', transform: 'translateX(-50%)', width: '100%' }}>
-      <div className="flex items-center justify-around h-16 px-6">
+      <div className="flex items-center justify-around h-16 px-2">
         {sellerItems.map((item) => {
           const isActive = activePage === item.id;
           if (item.isSpecial) {
@@ -109,8 +136,13 @@ export function BottomNav({ activePage, onNavigate, role = 'seller' }: BottomNav
           }
           return (
             <button key={item.id} onClick={() => onNavigate(item.id)}
-              className="flex flex-col items-center gap-1 px-4 py-2 transition-all active:scale-90">
+              className="flex flex-col items-center gap-1 px-3 py-2 transition-all active:scale-90 relative">
               {item.icon(isActive)}
+              {item.hasUnread && (
+                <div className="absolute -top-0.5 right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center border-2 border-white">
+                  <span className="text-[7px] font-black text-white">{unreadMessages > 9 ? '9+' : unreadMessages}</span>
+                </div>
+              )}
               <span className={`text-[9px] font-bold uppercase tracking-widest transition-colors ${isActive ? 'text-green-600' : 'text-slate-400'}`}>
                 {item.label}
               </span>

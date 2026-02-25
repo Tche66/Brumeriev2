@@ -5,11 +5,13 @@ import { incrementWhatsAppClick } from '@/services/productService';
 import { getBookmarks, addBookmark, removeBookmark } from '@/services/bookmarkService';
 import { useAuth } from '@/contexts/AuthContext';
 import { ImageLightbox } from '@/components/ImageLightbox';
+import { getOrCreateConversation } from '@/services/messagingService';
 
 interface ProductDetailPageProps {
   product: Product;
   onBack: () => void;
   onSellerClick: (sellerId: string) => void;
+  onStartChat?: (convId: string) => void;
 }
 
 const CATEGORIES_MAP: Record<string, string> = {
@@ -17,7 +19,7 @@ const CATEGORIES_MAP: Record<string, string> = {
   beauty: 'Beauté', sports: 'Sport', books: 'Livres', toys: 'Jouets', other: 'Autre',
 };
 
-export function ProductDetailPage({ product, onBack, onSellerClick }: ProductDetailPageProps) {
+export function ProductDetailPage({ product, onBack, onSellerClick, onStartChat }: ProductDetailPageProps) {
   const { currentUser } = useAuth();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
@@ -25,6 +27,7 @@ export function ProductDetailPage({ product, onBack, onSellerClick }: ProductDet
   const [copySuccess, setCopySuccess] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [startingChat, setStartingChat] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [scale, setScale] = useState(1);
   const [lastDist, setLastDist] = useState<number | null>(null);
@@ -37,6 +40,31 @@ export function ProductDetailPage({ product, onBack, onSellerClick }: ProductDet
     const ids = userProfile?.bookmarkedProductIds || [];
     setIsBookmarked(ids.includes(product.id));
   }, [userProfile, product.id]);
+
+  const handleStartChat = async () => {
+    if (!currentUser || !userProfile) return;
+    if (currentUser.uid === product.sellerId) return; // pas de chat avec soi-même
+    setStartingChat(true);
+    try {
+      const convId = await getOrCreateConversation(
+        currentUser.uid,
+        product.sellerId,
+        {
+          id: product.id,
+          title: product.title,
+          price: product.price,
+          image: product.images?.[0] || '',
+          neighborhood: product.neighborhood,
+        },
+        userProfile.name,
+        product.sellerName,
+        userProfile.photoURL,
+        product.sellerPhoto,
+      );
+      onStartChat?.(convId);
+    } catch (e) { console.error('[Chat] start error:', e); }
+    finally { setStartingChat(false); }
+  };
 
   const handleBookmark = async () => {
     if (!currentUser) return;
@@ -287,39 +315,32 @@ export function ProductDetailPage({ product, onBack, onSellerClick }: ProductDet
           </button>
         </div>
         <div className="p-4 pt-2">
-          <button onClick={handleWhatsAppClick} disabled={product.status === 'sold'}
-            className={`w-full py-5 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all ${
+          <button
+            onClick={product.status !== 'sold' && currentUser?.uid !== product.sellerId ? handleStartChat : undefined}
+            disabled={product.status === 'sold' || startingChat || currentUser?.uid === product.sellerId}
+            className={`w-full py-5 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all active:scale-95 ${
               product.status === 'sold' ? 'bg-slate-100 text-slate-300' :
-              contacted ? 'bg-slate-900 text-white' :
-              'bg-green-600 text-white shadow-xl shadow-green-200 active:scale-95'
-            }`}>
-            {product.status === 'sold' ? 'VENDU' : contacted ? 'DÉJÀ CONTACTÉ' : 'CONTACTER SUR WHATSAPP'}
+              currentUser?.uid === product.sellerId ? 'bg-slate-100 text-slate-400' :
+              'text-white shadow-xl shadow-blue-200'
+            }`}
+            style={product.status !== 'sold' && currentUser?.uid !== product.sellerId ? { background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)' } : {}}
+          >
+            {startingChat ? (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : product.status === 'sold' ? 'VENDU' :
+              currentUser?.uid === product.sellerId ? 'TON ANNONCE' : (
+              <>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+                Discuter avec le vendeur
+              </>
+            )}
           </button>
         </div>
       </div>
 
-      {/* Modal WhatsApp */}
-      {showWhatsAppModal && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-end justify-center p-4" onClick={() => setShowWhatsAppModal(false)}>
-          <div className="bg-white w-full max-w-md rounded-[3rem] p-10 shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="w-16 h-16 bg-green-50 rounded-2xl flex items-center justify-center mb-6 mx-auto">
-              <svg width="30" height="30" viewBox="0 0 24 24" fill="#16A34A"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413z"/><path d="M11.99 2C6.465 2 2.011 6.46 2.011 11.985a9.916 9.916 0 001.337 5.003L2 22l5.16-1.321a9.955 9.955 0 004.83 1.24c5.524 0 9.979-4.452 9.979-9.977A9.97 9.97 0 0011.99 2z"/></svg>
-            </div>
-            <h3 className="text-2xl font-black text-slate-900 mb-2 text-center uppercase tracking-tighter">On y va ?</h3>
-            <p className="text-slate-400 text-[10px] mb-8 text-center font-bold uppercase tracking-widest">
-              Tu vas discuter avec <span className="text-slate-900 font-black">{product.sellerName}</span> sur WhatsApp.
-            </p>
-            <div className="bg-amber-50 rounded-2xl p-4 mb-8 border border-amber-100 flex gap-3 items-center">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#92400E" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-              <p className="text-[9px] text-amber-900 font-black uppercase leading-tight">Pas de transfert d'argent sans avoir vu l'article !</p>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <button onClick={() => setShowWhatsAppModal(false)} className="py-5 rounded-xl bg-slate-50 text-slate-400 font-black text-[9px] uppercase tracking-widest">Retour</button>
-              <button onClick={handleConfirmWhatsApp} className="py-5 rounded-xl bg-green-600 text-white font-black text-[9px] uppercase tracking-widest shadow-lg shadow-green-100">C'est parti !</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* WhatsApp remplacé par messagerie interne — Sprint 2 */}
 
       {/* Lightbox plein écran */}
       {lightboxOpen && (

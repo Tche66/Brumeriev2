@@ -1,7 +1,8 @@
-// src/App.tsx
-import React, { useState } from 'react';
+// src/App.tsx — Sprint 2 : Messagerie intégrée
+import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { updateUserProfile } from '@/services/userService';
+import { subscribeTotalUnread } from '@/services/messagingService';
 import { AuthPage } from '@/pages/AuthPage';
 import { HomePage } from '@/pages/HomePage';
 import { ProductDetailPage } from '@/pages/ProductDetailPage';
@@ -15,122 +16,109 @@ import { SupportPage } from '@/pages/SupportPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { PrivacyPage } from '@/pages/PrivacyPage';
 import { RoleSelectPage } from '@/pages/RoleSelectPage';
+import { ConversationsListPage } from '@/pages/ConversationsListPage';
+import { ChatPage } from '@/pages/ChatPage';
 import { BottomNav } from '@/components/BottomNav';
-import { Product } from '@/types';
+import { Product, Conversation } from '@/types';
 
 type Page =
-  | 'home' | 'profile' | 'sell'
-  | 'product-detail' | 'seller-profile'
+  | 'home' | 'profile' | 'sell' | 'messages'
+  | 'product-detail' | 'seller-profile' | 'chat'
   | 'edit-profile' | 'verification' | 'support'
   | 'settings' | 'privacy' | 'terms' | 'about';
 
-// ── AuthGate : inscription → choix de rôle ────────────────
+// ── AuthGate ─────────────────────────────────────────────────
 function AuthGate() {
   const { userProfile, currentUser } = useAuth();
   const [showPrivacy, setShowPrivacy] = React.useState(false);
   const [privacyMode, setPrivacyMode] = React.useState<'privacy' | 'terms'>('privacy');
-  const [roleSelected, setRoleSelected] = React.useState(false);
 
   const handleNavigate = (page: string) => {
     if (page === 'privacy') { setPrivacyMode('privacy'); setShowPrivacy(true); }
     else if (page === 'terms') { setPrivacyMode('terms'); setShowPrivacy(true); }
   };
 
-  if (showPrivacy) {
-    return <PrivacyPage onBack={() => setShowPrivacy(false)} isTerms={privacyMode === 'terms'} />;
-  }
+  if (showPrivacy) return <PrivacyPage onBack={() => setShowPrivacy(false)} isTerms={privacyMode === 'terms'} />;
 
-  // Nouvel utilisateur sans rôle défini → afficher écran de choix
-  if (currentUser && userProfile && !userProfile.role && !roleSelected) {
+  if (currentUser && userProfile && !userProfile.role) {
     return (
       <RoleSelectPage
         userName={userProfile.name}
-        onSelect={async (role) => {
-          await updateUserProfile(currentUser.uid, { role });
-          setRoleSelected(true);
-        }}
+        onSelect={async (role) => { await updateUserProfile(currentUser.uid, { role }); window.location.reload(); }}
       />
     );
   }
-
   return <AuthPage onNavigate={handleNavigate} />;
 }
 
-// ── Confirmation changement de rôle ────────────────────────
+// ── Modal switch rôle ─────────────────────────────────────────
 function RoleSwitchModal({ currentRole, onConfirm, onCancel }: {
-  currentRole: 'buyer' | 'seller';
-  onConfirm: () => void;
-  onCancel: () => void;
+  currentRole: 'buyer' | 'seller'; onConfirm: () => void; onCancel: () => void;
 }) {
   const newRole = currentRole === 'buyer' ? 'seller' : 'buyer';
   const isGoingSeller = newRole === 'seller';
-
   return (
     <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[200] flex items-end justify-center p-4">
-      <div className="bg-white w-full max-w-md rounded-[3rem] p-8 animate-slide-up">
+      <div className="bg-white w-full max-w-md rounded-[3rem] p-8">
         <div className="w-12 h-1.5 bg-slate-100 rounded-full mx-auto mb-6" />
         <div className={`w-16 h-16 rounded-[2rem] flex items-center justify-center mx-auto mb-6 ${isGoingSeller ? 'bg-green-50' : 'bg-blue-50'}`}>
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
             stroke={isGoingSeller ? '#16A34A' : '#3B82F6'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             {isGoingSeller
               ? <><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></>
-              : <><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></>
-            }
+              : <><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></>}
           </svg>
         </div>
         <h3 className="text-xl font-black text-slate-900 text-center uppercase tracking-tight mb-2">
           Passer en mode {isGoingSeller ? 'Vendeur' : 'Acheteur'}
         </h3>
         <p className="text-slate-400 text-[11px] text-center font-medium mb-8 leading-relaxed">
-          {isGoingSeller
-            ? 'Tu pourras publier des articles et gérer ta boutique.'
-            : 'Tu passeras en mode exploration. Tes articles restent sauvegardés.'}
+          {isGoingSeller ? 'Tu pourras publier des articles et gérer ta boutique.' : 'Tu passeras en mode exploration.'}
         </p>
         <div className="flex flex-col gap-3">
           <button onClick={onConfirm}
             className={`w-full py-5 rounded-2xl font-black text-[11px] uppercase tracking-widest active:scale-95 transition-all text-white shadow-xl ${isGoingSeller ? 'bg-green-600 shadow-green-200' : 'bg-blue-500 shadow-blue-200'}`}>
             Confirmer le changement
           </button>
-          <button onClick={onCancel} className="w-full py-4 text-slate-400 font-bold text-[11px] uppercase tracking-widest">
-            Annuler
-          </button>
+          <button onClick={onCancel} className="w-full py-4 text-slate-400 font-bold text-[11px] uppercase tracking-widest">Annuler</button>
         </div>
       </div>
     </div>
   );
 }
 
-// ── AppContent principal ────────────────────────────────────
+// ── AppContent ────────────────────────────────────────────────
 function AppContent() {
   const { currentUser, userProfile } = useAuth();
   const [activePage, setActivePage] = useState<Page>('home');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedSellerId, setSelectedSellerId] = useState<string | null>(null);
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [navigationHistory, setNavigationHistory] = useState<Page[]>(['home']);
   const [showRoleSwitch, setShowRoleSwitch] = useState(false);
+  const [unreadMessages, setUnreadMessages] = useState(0);
 
-  React.useEffect(() => { window.scrollTo(0, 0); }, [activePage, selectedProduct]);
+  useEffect(() => { window.scrollTo(0, 0); }, [activePage, selectedProduct]);
+
+  // Abonnement total messages non-lus → badge BottomNav
+  useEffect(() => {
+    if (!currentUser) return;
+    const unsub = subscribeTotalUnread(currentUser.uid, setUnreadMessages);
+    return unsub;
+  }, [currentUser]);
 
   if (!currentUser) return <AuthGate />;
 
-  // Utilisateur connecté mais sans rôle → choix de rôle
   if (userProfile && !userProfile.role) {
     return (
-      <RoleSelectPage
-        userName={userProfile.name}
-        onSelect={async (role) => {
-          await updateUserProfile(currentUser.uid, { role });
-          window.location.reload();
-        }}
-      />
+      <RoleSelectPage userName={userProfile.name}
+        onSelect={async (role) => { await updateUserProfile(currentUser.uid, { role }); window.location.reload(); }} />
     );
   }
 
   const role = userProfile?.role || 'buyer';
   const isBuyer = role === 'buyer';
-
-  // Pages principales selon le rôle
-  const MAIN_PAGES: Page[] = isBuyer ? ['home', 'profile'] : ['home', 'sell', 'profile'];
+  const MAIN_PAGES: Page[] = ['home', 'messages', 'profile', ...(isBuyer ? [] : ['sell' as Page])];
 
   const navigate = (page: Page) => {
     setNavigationHistory(prev => [...prev, page]);
@@ -145,23 +133,33 @@ function AppContent() {
     } else { setActivePage('home'); }
   };
 
-  const handleProductClick = (product: Product) => {
-    setSelectedProduct(product); navigate('product-detail');
-  };
-  const handleSellerClick = (sellerId: string) => {
-    setSelectedSellerId(sellerId); navigate('seller-profile');
-  };
+  const handleProductClick = (product: Product) => { setSelectedProduct(product); navigate('product-detail'); };
+  const handleSellerClick = (sellerId: string) => { setSelectedSellerId(sellerId); navigate('seller-profile'); };
   const handleBottomNavNavigate = (page: string) => {
-    setSelectedProduct(null); setSelectedSellerId(null);
+    setSelectedProduct(null); setSelectedSellerId(null); setSelectedConversation(null);
     setNavigationHistory([page as Page]); setActivePage(page as Page);
   };
 
-  // Gestion du switch de rôle depuis les paramètres / profil
-  const handleNavigate = (p: string) => {
-    if (p === 'switch-to-seller' || p === 'switch-to-buyer') {
-      setShowRoleSwitch(true);
-      return;
+  // Ouvrir une conversation depuis liste ou depuis produit
+  const handleOpenConversation = (conv: Conversation) => {
+    setSelectedConversation(conv);
+    navigate('chat');
+  };
+
+  // Depuis ProductDetailPage → créer/ouvrir conv par ID
+  const handleStartChat = async (convId: string) => {
+    // On charge la conversation depuis son ID pour ouvrir le ChatPage
+    const { getDoc, doc } = await import('firebase/firestore');
+    const { db } = await import('@/config/firebase');
+    const snap = await getDoc(doc(db, 'conversations', convId));
+    if (snap.exists()) {
+      setSelectedConversation({ id: snap.id, ...snap.data() } as Conversation);
+      navigate('chat');
     }
+  };
+
+  const handleNavigate = (p: string) => {
+    if (p === 'switch-to-seller' || p === 'switch-to-buyer') { setShowRoleSwitch(true); return; }
     navigate(p as Page);
   };
 
@@ -180,24 +178,29 @@ function AppContent() {
           <HomePage onProductClick={handleProductClick} onProfileClick={() => navigate('profile')} />
         )}
         {activePage === 'product-detail' && selectedProduct && (
-          <ProductDetailPage product={selectedProduct} onBack={goBack} onSellerClick={handleSellerClick} />
+          <ProductDetailPage
+            product={selectedProduct} onBack={goBack}
+            onSellerClick={handleSellerClick}
+            onStartChat={handleStartChat}
+          />
         )}
         {activePage === 'seller-profile' && selectedSellerId && (
           <SellerProfilePage sellerId={selectedSellerId} onBack={goBack} onProductClick={handleProductClick} />
         )}
-
-        {/* Profil selon le rôle */}
         {activePage === 'profile' && isBuyer && (
           <BuyerProfilePage onProductClick={handleProductClick} onNavigate={handleNavigate} />
         )}
         {activePage === 'profile' && !isBuyer && (
           <ProfilePage onProductClick={handleProductClick} onNavigate={handleNavigate} />
         )}
-
-        {activePage === 'edit-profile' && <EditProfilePage onBack={goBack} onSaved={goBack} />}
-        {activePage === 'settings' && (
-          <SettingsPage onBack={goBack} onNavigate={handleNavigate} role={role} />
+        {activePage === 'messages' && (
+          <ConversationsListPage onOpenConversation={handleOpenConversation} />
         )}
+        {activePage === 'chat' && selectedConversation && (
+          <ChatPage conversation={selectedConversation} onBack={goBack} onProductClick={handleProductClick} />
+        )}
+        {activePage === 'edit-profile' && <EditProfilePage onBack={goBack} onSaved={goBack} />}
+        {activePage === 'settings' && <SettingsPage onBack={goBack} onNavigate={handleNavigate} role={role} />}
         {activePage === 'verification' && <VerificationPage onBack={goBack} />}
         {activePage === 'support' && <SupportPage onBack={goBack} />}
         {activePage === 'privacy' && <PrivacyPage onBack={goBack} />}
@@ -209,16 +212,16 @@ function AppContent() {
       </main>
 
       {MAIN_PAGES.includes(activePage) && (
-        <BottomNav activePage={activePage} onNavigate={handleBottomNavNavigate} role={role} />
+        <BottomNav
+          activePage={activePage}
+          onNavigate={handleBottomNavNavigate}
+          role={role}
+          unreadMessages={unreadMessages}
+        />
       )}
 
-      {/* Modal changement de rôle */}
       {showRoleSwitch && userProfile && (
-        <RoleSwitchModal
-          currentRole={role}
-          onConfirm={handleRoleSwitch}
-          onCancel={() => setShowRoleSwitch(false)}
-        />
+        <RoleSwitchModal currentRole={role} onConfirm={handleRoleSwitch} onCancel={() => setShowRoleSwitch(false)} />
       )}
     </div>
   );
