@@ -34,6 +34,7 @@ export interface Product {
   sellerVerified: boolean;
   whatsappClickCount: number;
   status: 'active' | 'sold' | 'deleted';
+  neighborhoods?: string[]; // multi-ville vendeur
   createdAt: Date;
 }
 
@@ -44,13 +45,15 @@ export interface Category {
 }
 
 export const CATEGORIES: Category[] = [
-  { id: 'electronics', name: 'Électronique', icon: '📱' },
+  { id: 'phones', name: 'Téléphones', icon: '📱' },
+  { id: 'electronics', name: 'Électronique', icon: '💻' },
   { id: 'fashion', name: 'Mode', icon: '👕' },
+  { id: 'accessories', name: 'Accessoires', icon: '👜' },
+  { id: 'friperie', name: 'Friperie', icon: '🧥' },
+  { id: 'resale', name: 'Revente perso', icon: '🔄' },
   { id: 'home', name: 'Maison', icon: '🏠' },
   { id: 'beauty', name: 'Beauté', icon: '💄' },
   { id: 'sports', name: 'Sport', icon: '⚽' },
-  { id: 'books', name: 'Livres', icon: '📚' },
-  { id: 'toys', name: 'Jouets', icon: '🧸' },
   { id: 'other', name: 'Autre', icon: '📦' },
 ];
 

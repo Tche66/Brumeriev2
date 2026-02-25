@@ -108,8 +108,8 @@ export function HomePage({ onProductClick, onProfileClick }: HomePageProps) {
               <TrustBadges />
             </div>
             <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-white/10 rounded-full blur-3xl" />
-            <div className="absolute right-6 top-6 opacity-10 select-none pointer-events-none">
-              <img src="/favicon.png" alt="" className="w-14 h-14 object-contain" />
+            <div className="absolute right-6 top-6 opacity-40 select-none pointer-events-none">
+              <span style={{ fontSize: '52px', lineHeight: 1 }}>🇨🇮</span>
             </div>
           </div>
         </div>

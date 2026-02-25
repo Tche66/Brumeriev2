@@ -33,16 +33,25 @@ function VerifiedBadge({ size = 'sm' }: { size?: 'sm' | 'md' }) {
 export function ProductCard({ product, onClick, onBookmark, isBookmarked = false }: ProductCardProps) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const [saved, setSaved] = useState(isBookmarked);
+  
+  // Sync with prop when it changes externally
+  React.useEffect(() => { setSaved(isBookmarked); }, [isBookmarked]);
 
   const isNew = product.createdAt
     ? new Date().getTime() - new Date(product.createdAt).getTime() < 48 * 60 * 60 * 1000
     : false;
 
-  const handleBookmark = (e: React.MouseEvent) => {
+  const handleBookmark = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    setSaved(!saved);
-    onBookmark?.(product.id);
-    if ('vibrate' in navigator) navigator.vibrate(10);
+    e.preventDefault();
+    const newSaved = !saved;
+    setSaved(newSaved); // optimistic update
+    if ('vibrate' in navigator) navigator.vibrate(15);
+    try {
+      await onBookmark?.(product.id);
+    } catch {
+      setSaved(!newSaved); // revert on error
+    }
   };
 
   return (

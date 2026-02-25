@@ -10,6 +10,7 @@ interface SellPageProps {
 }
 
 const STEPS = ['Photos', 'Infos', 'Détails'];
+const MAX_CITIES = 3;
 
 const Icon = ({ name }: { name: string }) => {
   if (name === 'gallery') return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>;
@@ -31,10 +32,16 @@ export function SellPage({ onClose, onSuccess }: SellPageProps) {
   const [price, setPrice] = useState('');
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
-  const [neighborhood, setNeighborhood] = useState(userProfile?.neighborhood || '');
+  // Multi-ville : jusqu'à 3 quartiers
+  const [selectedCities, setSelectedCities] = useState<string[]>(
+    userProfile?.neighborhood ? [userProfile.neighborhood] : []
+  );
 
   const galleryRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
+
+  // Avertissement si pas de photo de profil
+  const hasProfilePhoto = !!userProfile?.photoURL;
 
   useEffect(() => {
     if (userProfile) {
@@ -48,10 +55,7 @@ export function SellPage({ onClose, onSuccess }: SellPageProps) {
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
-    if (files.length + images.length > 3) {
-      setError('Maximum 3 photos autorisées.');
-      return;
-    }
+    if (files.length + images.length > 3) { setError('Maximum 3 photos.'); return; }
     setError('');
     for (const file of files) {
       const compressed = await compressImage(file);
@@ -66,8 +70,17 @@ export function SellPage({ onClose, onSuccess }: SellPageProps) {
     setImagePreviews(imagePreviews.filter((_, i) => i !== index));
   };
 
+  const toggleCity = (city: string) => {
+    setSelectedCities(prev => {
+      if (prev.includes(city)) return prev.filter(c => c !== city);
+      if (prev.length >= MAX_CITIES) return prev; // max 3
+      return [...prev, city];
+    });
+  };
+
   const handleSubmit = async () => {
     if (!userProfile || !canPublish) return;
+    if (selectedCities.length === 0) { setError('Sélectionne au moins une ville.'); return; }
     setLoading(true);
     try {
       await createProduct({
@@ -75,7 +88,8 @@ export function SellPage({ onClose, onSuccess }: SellPageProps) {
         price: parseFloat(price),
         description: description.trim(),
         category,
-        neighborhood,
+        neighborhood: selectedCities[0], // principal pour compatibilité
+        neighborhoods: selectedCities,   // multi-ville
         sellerId: userProfile.id,
         sellerName: userProfile.name,
         sellerPhone: userProfile.phone,
@@ -94,39 +108,54 @@ export function SellPage({ onClose, onSuccess }: SellPageProps) {
 
   if (success) {
     return (
-      <div className="fixed inset-0 bg-white z-[70] flex flex-col items-center justify-center px-8 text-center animate-fade-in">
+      <div className="fixed inset-0 bg-white z-[70] flex flex-col items-center justify-center px-8 text-center">
         <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6 animate-bounce">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="4"><polyline points="20 6 9 17 4 12"/></svg>
         </div>
-        <h2 className="text-2xl font-bold mb-2">Article publié !</h2>
-        <p className="text-slate-500">Ton annonce est maintenant visible par la communauté.</p>
+        <h2 className="text-2xl font-black mb-2 text-slate-900 uppercase tracking-tight">Article publié !</h2>
+        <p className="text-slate-500 text-sm">Ton annonce est visible par la communauté.</p>
       </div>
     );
   }
 
   return (
     <div className="fixed inset-0 bg-white z-[60] flex flex-col">
-      {/* Header Pro */}
+      {/* Header */}
       <div className="flex items-center justify-between px-6 py-5 border-b border-slate-50">
         <button onClick={onClose} className="p-2 -ml-2 text-slate-400 hover:text-black transition-colors">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
         </button>
-        <span className="font-bold text-xs tracking-[0.2em] uppercase text-slate-900">
-          {STEPS[step]}
-        </span>
-        <div className="bg-green-50 text-green-600 px-3 py-1 rounded-full text-[10px] font-bold">
-          {step + 1} / {STEPS.length}
+        <div className="flex items-center gap-3">
+          {STEPS.map((s, i) => (
+            <div key={i} className="flex items-center gap-1">
+              <div className={`w-2 h-2 rounded-full transition-all ${i === step ? 'bg-green-600 w-4' : i < step ? 'bg-green-300' : 'bg-slate-200'}`} />
+            </div>
+          ))}
+          <span className="font-bold text-xs tracking-[0.2em] uppercase text-slate-900 ml-1">{STEPS[step]}</span>
         </div>
+        <div className="bg-green-50 text-green-600 px-3 py-1 rounded-full text-[10px] font-bold">{step + 1}/{STEPS.length}</div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-8 safe-area-bottom">
+      <div className="flex-1 overflow-y-auto px-6 py-8">
+
+        {/* Avertissement photo de profil */}
+        {!hasProfilePhoto && (
+          <div className="mb-6 p-4 bg-amber-50 rounded-2xl border border-amber-100 flex gap-3 items-start">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#92400E" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <p className="text-[10px] text-amber-900 font-bold leading-relaxed">
+              <span className="font-black uppercase">Photo de profil recommandée</span><br/>
+              Les annonces avec une photo de profil inspirent plus confiance et obtiennent plus de contacts. Ajoute-en une dans ton profil !
+            </p>
+          </div>
+        )}
+
+        {/* ÉTAPE 0 — Photos */}
         {step === 0 && (
           <div className="space-y-8 animate-fade-up">
             <div>
-              <h3 className="text-2xl font-bold text-slate-900 leading-tight">Photos de l'article</h3>
-              <p className="text-slate-400 text-sm mt-2">Le premier visuel sera la couverture.</p>
+              <h3 className="text-2xl font-black text-slate-900">Photos de l'article</h3>
+              <p className="text-slate-400 text-sm mt-2">La première photo sera la couverture. Max 3 photos.</p>
             </div>
-
             <div className="grid grid-cols-3 gap-3">
               {imagePreviews.map((preview, i) => (
                 <div key={i} className="relative aspect-[4/5] rounded-[1.5rem] overflow-hidden bg-slate-100 shadow-sm">
@@ -136,119 +165,144 @@ export function SellPage({ onClose, onSuccess }: SellPageProps) {
                 </div>
               ))}
               {images.length < 3 && (
-                <div 
-                  onClick={() => galleryRef.current?.click()}
-                  className="aspect-[4/5] rounded-[1.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 bg-slate-50 active:scale-95 transition-all"
-                >
+                <div onClick={() => galleryRef.current?.click()}
+                  className="aspect-[4/5] rounded-[1.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 bg-slate-50 active:scale-95 transition-all cursor-pointer">
                   <span className="text-slate-300 text-3xl font-light">+</span>
+                  <span className="text-[9px] text-slate-300 font-bold uppercase tracking-widest">Ajouter</span>
                 </div>
               )}
             </div>
-
             <div className="flex gap-3">
-              <button onClick={() => galleryRef.current?.click()} className="flex-1 flex items-center justify-center gap-3 py-5 bg-slate-900 text-white rounded-[2rem] font-bold text-xs uppercase tracking-widest transition-all active:scale-95 shadow-xl shadow-slate-200">
+              <button onClick={() => galleryRef.current?.click()} className="flex-1 flex items-center justify-center gap-3 py-5 bg-slate-900 text-white rounded-[2rem] font-bold text-xs uppercase tracking-widest active:scale-95">
                 <Icon name="gallery" /> Galerie
               </button>
-              <button onClick={() => cameraRef.current?.click()} className="flex-1 flex items-center justify-center gap-3 py-5 bg-slate-50 text-slate-900 rounded-[2rem] font-bold text-xs uppercase tracking-widest border border-slate-100 transition-all active:scale-95">
+              <button onClick={() => cameraRef.current?.click()} className="flex-1 flex items-center justify-center gap-3 py-5 bg-slate-50 text-slate-900 rounded-[2rem] font-bold text-xs uppercase tracking-widest border border-slate-100 active:scale-95">
                 <Icon name="camera" /> Caméra
               </button>
             </div>
-            
             <input ref={galleryRef} type="file" accept="image/*" multiple onChange={handleImageChange} className="hidden" />
             <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handleImageChange} className="hidden" />
           </div>
         )}
 
+        {/* ÉTAPE 1 — Infos */}
         {step === 1 && (
-          <div className="space-y-8 animate-fade-up">
-            <h3 className="text-2xl font-bold text-slate-900">Informations</h3>
-            <div className="space-y-5">
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase text-slate-400 tracking-widest ml-1">Titre de l'annonce</label>
-                <input type="text" placeholder="ex: iPhone 13 Pro Max" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full px-5 py-5 bg-slate-50 rounded-2xl text-sm border-2 border-transparent focus:border-green-600 focus:bg-white outline-none transition-all" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase text-slate-400 tracking-widest ml-1">Prix (FCFA)</label>
-                <input type="number" placeholder="0" value={price} onChange={(e) => setPrice(e.target.value)} className="w-full px-5 py-5 bg-slate-50 rounded-2xl text-lg border-2 border-transparent focus:border-green-600 focus:bg-white outline-none transition-all font-bold text-green-700" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase text-slate-400 tracking-widest ml-1">Description</label>
-                <textarea rows={4} placeholder="État, accessoires inclus, troc possible ?..." value={description} onChange={(e) => setDescription(e.target.value)} className="w-full px-5 py-5 bg-slate-50 rounded-2xl text-sm border-2 border-transparent focus:border-green-600 focus:bg-white outline-none transition-all resize-none" />
-              </div>
+          <div className="space-y-6 animate-fade-up">
+            <h3 className="text-2xl font-black text-slate-900">Informations</h3>
+            <div>
+              <label className="text-[10px] font-bold uppercase text-slate-400 tracking-widest ml-1 block mb-2">Titre de l'annonce</label>
+              <input type="text" placeholder="ex: iPhone 13 Pro Max" value={title} onChange={e => setTitle(e.target.value)}
+                className="w-full px-5 py-5 bg-slate-50 rounded-2xl text-sm border-2 border-transparent focus:border-green-600 focus:bg-white outline-none transition-all" />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold uppercase text-slate-400 tracking-widest ml-1 block mb-2">Prix (FCFA)</label>
+              <input type="number" placeholder="0" value={price} onChange={e => setPrice(e.target.value)}
+                className="w-full px-5 py-5 bg-slate-50 rounded-2xl text-lg border-2 border-transparent focus:border-green-600 focus:bg-white outline-none transition-all font-bold text-green-700" />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold uppercase text-slate-400 tracking-widest ml-1 block mb-2">Description</label>
+              <textarea rows={4} placeholder="État, accessoires inclus, troc possible ?..." value={description} onChange={e => setDescription(e.target.value)}
+                className="w-full px-5 py-5 bg-slate-50 rounded-2xl text-sm border-2 border-transparent focus:border-green-600 focus:bg-white outline-none transition-all resize-none" />
             </div>
           </div>
         )}
 
+        {/* ÉTAPE 2 — Catégorie & Multi-ville */}
         {step === 2 && (
           <div className="space-y-8 animate-fade-up">
-            <h3 className="text-2xl font-bold text-slate-900">Catégorie & Lieu</h3>
-            
-            {/* SECTION CATÉGORIES */}
-            <div className="space-y-4">
-              <label className="text-[10px] font-bold uppercase text-slate-400 tracking-widest ml-1">1. Choisir la catégorie</label>
-              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-[2.5rem]">
+            <h3 className="text-2xl font-black text-slate-900">Catégorie & Zones</h3>
+
+            {/* Catégories */}
+            <div>
+              <label className="text-[10px] font-bold uppercase text-slate-400 tracking-widest block mb-3">1. Choisir le rayon</label>
+              <div className="grid grid-cols-2 gap-2.5 bg-slate-50 p-4 rounded-[2rem]">
                 {CATEGORIES.map(cat => (
-                  <button 
-                    key={cat.id} 
-                    onClick={() => setCategory(cat.id)} 
-                    className={`py-4 px-4 rounded-2xl text-[11px] font-bold transition-all border ${
-                      category === cat.id ? 'bg-slate-900 border-slate-900 text-white shadow-lg scale-[1.02]' : 'bg-white border-slate-100 text-slate-500'
-                    }`}
-                  >
-                    {cat.name}
+                  <button key={cat.id} onClick={() => setCategory(cat.id)}
+                    className={`py-3.5 px-3 rounded-2xl text-[11px] font-bold transition-all border flex items-center gap-2 ${
+                      category === cat.id ? 'bg-slate-900 border-slate-900 text-white shadow-lg' : 'bg-white border-slate-100 text-slate-600'
+                    }`}>
+                    <span>{cat.icon}</span>
+                    <span>{cat.name}</span>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* SECTION LOCALISATION */}
-            <div className="space-y-4">
-              <label className="text-[10px] font-bold uppercase text-slate-400 tracking-widest ml-1">2. Localisation (Abidjan)</label>
-              <div className="grid grid-cols-2 gap-3 bg-green-50/50 p-4 rounded-[2.5rem] border border-green-100/50">
-                {NEIGHBORHOODS.map(n => (
-                  <button 
-                    key={n} 
-                    onClick={() => setNeighborhood(n)} 
-                    className={`py-4 px-4 rounded-2xl text-[11px] font-bold transition-all border ${
-                      neighborhood === n ? 'bg-green-600 border-green-600 text-white shadow-lg scale-[1.02]' : 'bg-white border-green-50 text-green-700'
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
+            {/* Multi-ville */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-[10px] font-bold uppercase text-slate-400 tracking-widest">
+                  2. Zones de vente <span className="text-green-600">(max {MAX_CITIES})</span>
+                </label>
+                <span className={`text-[9px] font-black px-2 py-1 rounded-full uppercase tracking-widest ${
+                  selectedCities.length >= MAX_CITIES ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-500'
+                }`}>
+                  {selectedCities.length}/{MAX_CITIES} sélectionnées
+                </span>
               </div>
+
+              {/* Villes sélectionnées */}
+              {selectedCities.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {selectedCities.map(city => (
+                    <div key={city} className="flex items-center gap-1.5 bg-green-600 text-white text-[10px] font-bold px-3 py-1.5 rounded-xl">
+                      <svg width="8" height="8" viewBox="0 0 24 24" fill="white"><path d="M12 2a8 8 0 00-8 8c0 5.5 8 12 8 12s8-6.5 8-12a8 8 0 00-8-8z"/></svg>
+                      {city}
+                      <button onClick={() => toggleCity(city)} className="ml-1 text-green-200 hover:text-white">✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-2 bg-green-50/50 p-4 rounded-[2rem] border border-green-100/50 max-h-72 overflow-y-auto">
+                {NEIGHBORHOODS.map(n => {
+                  const isSelected = selectedCities.includes(n);
+                  const isDisabled = !isSelected && selectedCities.length >= MAX_CITIES;
+                  return (
+                    <button key={n} onClick={() => !isDisabled && toggleCity(n)}
+                      className={`py-3.5 px-3 rounded-xl text-[11px] font-bold transition-all border flex items-center gap-1.5 ${
+                        isSelected ? 'bg-green-600 border-green-600 text-white shadow-md' :
+                        isDisabled ? 'bg-slate-50 border-slate-50 text-slate-300 cursor-not-allowed' :
+                        'bg-white border-green-50 text-green-700 active:scale-95'
+                      }`}>
+                      <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0">
+                        <path d="M12 2a8 8 0 00-8 8c0 5.5 8 12 8 12s8-6.5 8-12a8 8 0 00-8-8zm0 11a3 3 0 110-6 3 3 0 010 6z"/>
+                      </svg>
+                      {n}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[9px] text-slate-400 mt-2 text-center">
+                Sélectionne jusqu'à 3 zones pour mieux toucher tes acheteurs
+              </p>
             </div>
           </div>
         )}
-        
+
         {error && (
-          <div className="mt-6 p-4 bg-red-50 rounded-2xl border border-red-100 animate-fade-in">
+          <div className="mt-6 p-4 bg-red-50 rounded-2xl border border-red-100">
             <p className="text-red-600 text-xs font-bold text-center">{error}</p>
           </div>
         )}
       </div>
 
-      {/* Footer Navigation - Fixé et propre */}
+      {/* Footer navigation */}
       <div className="p-6 border-t border-slate-50 bg-white">
         <div className="flex gap-3">
           {step > 0 && (
-            <button 
-              onClick={() => setStep(step - 1)} 
-              className="flex-1 py-5 rounded-[2rem] bg-slate-50 text-slate-500 font-bold text-xs uppercase tracking-widest active:scale-95 transition-all"
-            >
+            <button onClick={() => setStep(step - 1)}
+              className="flex-1 py-5 rounded-[2rem] bg-slate-50 text-slate-500 font-bold text-xs uppercase tracking-widest active:scale-95 transition-all">
               Retour
             </button>
           )}
-          <button 
-            onClick={() => step < 2 ? setStep(step + 1) : handleSubmit()} 
-            disabled={loading || (step === 0 && images.length === 0) || (step === 1 && (!title || !price))}
-            className="flex-[2] py-5 rounded-[2rem] bg-green-600 text-white font-bold text-xs uppercase tracking-[0.2em] shadow-xl shadow-green-100 disabled:opacity-30 transition-all active:scale-95 flex items-center justify-center gap-2"
-          >
+          <button
+            onClick={() => step < 2 ? setStep(step + 1) : handleSubmit()}
+            disabled={loading || (step === 0 && images.length === 0) || (step === 1 && (!title || !price)) || (step === 2 && (!category || selectedCities.length === 0))}
+            className="flex-[2] py-5 rounded-[2rem] bg-green-600 text-white font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-green-100 disabled:opacity-30 transition-all active:scale-95 flex items-center justify-center gap-2">
             {loading ? (
-              <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              step === 2 ? 'Publier l\'annonce 🎉' : 'Continuer'
-            )}
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : step === 2 ? 'Publier 🎉' : 'Continuer'}
           </button>
         </div>
       </div>
