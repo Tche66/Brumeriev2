@@ -20,6 +20,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  refreshUserProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -81,8 +82,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function loadUserProfile(uid: string) {
     const userDoc = await getDoc(doc(db, 'users', uid));
     if (userDoc.exists()) {
-      setUserProfile(userDoc.data() as User);
+      const data = userDoc.data();
+      // Convertir Timestamp Firebase en Date si nécessaire
+      setUserProfile({
+        ...data,
+        bookmarkedProductIds: data.bookmarkedProductIds || [],
+      } as User);
     }
+  }
+
+  // Rafraîchir le profil après modification (favoris, etc.)
+  async function refreshUserProfile() {
+    if (currentUser) await loadUserProfile(currentUser.uid);
   }
 
   // Observer changements auth
@@ -108,6 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signIn,
     signOut,
     resetPassword,
+    refreshUserProfile,
   };
 
   return (

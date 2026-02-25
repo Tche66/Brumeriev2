@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ProductCard } from '@/components/ProductCard';
 import { getUserById } from '@/services/userService';
 import { getSellerProducts } from '@/services/productService';
-import { getBookmarks, addBookmark, removeBookmark } from '@/services/bookmarkService';
+import { addBookmark, removeBookmark } from '@/services/bookmarkService';
 import { useAuth } from '@/contexts/AuthContext';
 import { Product, User } from '@/types';
 
@@ -13,7 +13,7 @@ interface SellerProfilePageProps {
 }
 
 export function SellerProfilePage({ sellerId, onBack, onProductClick }: SellerProfilePageProps) {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile, refreshUserProfile } = useAuth();
   const [seller, setSeller] = useState<User | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,17 +32,18 @@ export function SellerProfilePage({ sellerId, onBack, onProductClick }: SellerPr
     })();
   }, [sellerId]);
 
+  // ✅ Favoris depuis userProfile
   useEffect(() => {
-    if (!currentUser) return;
-    getBookmarks(currentUser.uid).then(ids => setBookmarkIds(new Set(ids)));
-  }, [currentUser]);
+    const ids = userProfile?.bookmarkedProductIds || [];
+    setBookmarkIds(new Set(ids));
+  }, [userProfile?.bookmarkedProductIds]);
 
   const handleBookmark = async (id: string) => {
     if (!currentUser) return;
-    const next = new Set(bookmarkIds);
-    if (next.has(id)) { next.delete(id); await removeBookmark(currentUser.uid, id); }
-    else { next.add(id); await addBookmark(currentUser.uid, id); }
-    setBookmarkIds(next);
+    const isCurrently = bookmarkIds.has(id);
+    if (isCurrently) { await removeBookmark(currentUser.uid, id); }
+    else { await addBookmark(currentUser.uid, id); }
+    await refreshUserProfile();
   };
 
   const totalContacts = products.reduce((acc, p) => acc + (p.whatsappClickCount || 0), 0);

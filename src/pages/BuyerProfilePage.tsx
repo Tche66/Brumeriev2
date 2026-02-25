@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { ProductCard } from '@/components/ProductCard';
-import { getBookmarks, removeBookmark } from '@/services/bookmarkService';
+import { removeBookmark } from '@/services/bookmarkService';
 import { getProducts } from '@/services/productService';
 import { Product } from '@/types';
 
@@ -12,22 +12,21 @@ interface BuyerProfilePageProps {
 }
 
 export function BuyerProfilePage({ onProductClick, onNavigate }: BuyerProfilePageProps) {
-  const { userProfile, currentUser } = useAuth();
+  const { userProfile, currentUser, refreshUserProfile } = useAuth();
   const [bookmarkedProducts, setBookmarkedProducts] = useState<Product[]>([]);
   const [bookmarkIds, setBookmarkIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'favorites'>('favorites');
 
   useEffect(() => {
-    if (!currentUser) return;
     loadBookmarks();
-  }, [currentUser]);
+  }, [userProfile?.bookmarkedProductIds]);
 
   async function loadBookmarks() {
-    if (!currentUser) return;
     setLoading(true);
     try {
-      const ids = await getBookmarks(currentUser.uid);
+      // ✅ Depuis userProfile directement
+      const ids = userProfile?.bookmarkedProductIds || [];
       setBookmarkIds(new Set(ids));
       if (ids.length > 0) {
         const all = await getProducts();
@@ -42,8 +41,7 @@ export function BuyerProfilePage({ onProductClick, onNavigate }: BuyerProfilePag
   const handleRemoveBookmark = async (id: string) => {
     if (!currentUser) return;
     await removeBookmark(currentUser.uid, id);
-    setBookmarkIds(prev => { const n = new Set(prev); n.delete(id); return n; });
-    setBookmarkedProducts(prev => prev.filter(p => p.id !== id));
+    await refreshUserProfile(); // Synchro immédiate
   };
 
   if (!userProfile) return null;

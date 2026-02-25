@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { ProductCard } from '@/components/ProductCard';
 import { getSellerProducts, markProductAsSold, deleteProduct, updateProductStatus, getProducts } from '@/services/productService';
-import { getBookmarks, addBookmark, removeBookmark } from '@/services/bookmarkService';
+import { addBookmark, removeBookmark } from '@/services/bookmarkService';
 import { Product } from '@/types';
 
 interface ProfilePageProps {
@@ -24,7 +24,7 @@ function VerifiedBadge() {
 type Tab = 'active' | 'sold' | 'bookmarks';
 
 export function ProfilePage({ onProductClick, onNavigate }: ProfilePageProps) {
-  const { userProfile, currentUser } = useAuth();
+  const { userProfile, currentUser, refreshUserProfile } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [bookmarkedProducts, setBookmarkedProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,11 +35,11 @@ export function ProfilePage({ onProductClick, onNavigate }: ProfilePageProps) {
 
   useEffect(() => { if (userProfile) loadUserProducts(); }, [userProfile]);
 
-  // Charger les IDs de favoris Firebase
+  // ✅ Favoris depuis userProfile — toujours synchronisés
   useEffect(() => {
-    if (!currentUser) return;
-    getBookmarks(currentUser.uid).then(ids => setBookmarkIds(new Set(ids)));
-  }, [currentUser]);
+    const ids = userProfile?.bookmarkedProductIds || [];
+    setBookmarkIds(new Set(ids));
+  }, [userProfile?.bookmarkedProductIds]);
 
   useEffect(() => {
     if (activeTab === 'bookmarks') loadBookmarks();
@@ -68,16 +68,16 @@ export function ProfilePage({ onProductClick, onNavigate }: ProfilePageProps) {
 
   const handleBookmarkToggle = async (id: string) => {
     if (!currentUser) return;
-    const next = new Set(bookmarkIds);
-    if (next.has(id)) {
-      next.delete(id);
-      await removeBookmark(currentUser.uid, id);
-      setBookmarkedProducts(prev => prev.filter(p => p.id !== id));
-    } else {
-      next.add(id);
-      await addBookmark(currentUser.uid, id);
-    }
-    setBookmarkIds(next);
+    const isCurrently = bookmarkIds.has(id);
+    try {
+      if (isCurrently) {
+        await removeBookmark(currentUser.uid, id);
+        setBookmarkedProducts(prev => prev.filter(p => p.id !== id));
+      } else {
+        await addBookmark(currentUser.uid, id);
+      }
+      await refreshUserProfile();
+    } catch (e) { console.error('[Profile] bookmark toggle error', e); }
   };
 
   const activeProducts = products.filter(p => p.status !== 'sold');

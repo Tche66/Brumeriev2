@@ -4,6 +4,7 @@ import { generateWhatsAppLink, formatPrice, formatRelativeDate } from '@/utils/h
 import { incrementWhatsAppClick } from '@/services/productService';
 import { getBookmarks, addBookmark, removeBookmark } from '@/services/bookmarkService';
 import { useAuth } from '@/contexts/AuthContext';
+import { ImageLightbox } from '@/components/ImageLightbox';
 
 interface ProductDetailPageProps {
   product: Product;
@@ -23,26 +24,29 @@ export function ProductDetailPage({ product, onBack, onSellerClick }: ProductDet
   const [contacted, setContacted] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   const [scale, setScale] = useState(1);
   const [lastDist, setLastDist] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLDivElement>(null);
 
-  // Charger état bookmark Firebase
+  // ✅ Bookmark depuis userProfile directement — toujours à jour
+  const { userProfile, refreshUserProfile } = useAuth();
   useEffect(() => {
-    if (!currentUser) return;
-    getBookmarks(currentUser.uid).then(ids => setIsBookmarked(ids.includes(product.id)));
-  }, [currentUser, product.id]);
+    const ids = userProfile?.bookmarkedProductIds || [];
+    setIsBookmarked(ids.includes(product.id));
+  }, [userProfile, product.id]);
 
   const handleBookmark = async () => {
     if (!currentUser) return;
-    if (isBookmarked) {
-      await removeBookmark(currentUser.uid, product.id);
-      setIsBookmarked(false);
-    } else {
-      await addBookmark(currentUser.uid, product.id);
-      setIsBookmarked(true);
-    }
+    const next = !isBookmarked;
+    setIsBookmarked(next); // optimistic
+    try {
+      if (next) { await addBookmark(currentUser.uid, product.id); }
+      else { await removeBookmark(currentUser.uid, product.id); }
+      await refreshUserProfile();
+    } catch { setIsBookmarked(!next); } // revert
   };
 
   const handleScroll = () => {
@@ -127,7 +131,9 @@ export function ProductDetailPage({ product, onBack, onSellerClick }: ProductDet
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
               onDoubleClick={handleDoubleTap}
-              style={{ cursor: scale > 1 ? 'grab' : 'default' }}>
+              style={{ cursor: scale > 1 ? 'grab' : 'zoom-in' }}
+              onClick={() => { if (scale <= 1) { setLightboxIndex(idx); setLightboxOpen(true); } }}
+            >
               <img src={img || 'https://via.placeholder.com/600'} alt={`${product.title} - ${idx}`}
                 className="w-full h-full object-cover transition-transform duration-200"
                 style={{ transform: idx === currentImageIndex ? `scale(${scale})` : 'scale(1)', transformOrigin: 'center center' }}
@@ -140,7 +146,7 @@ export function ProductDetailPage({ product, onBack, onSellerClick }: ProductDet
         {/* Hint zoom */}
         {scale === 1 && product.images.length > 0 && (
           <div className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-black/30 backdrop-blur-md px-3 py-1 rounded-full">
-            <p className="text-[9px] text-white font-bold">Pincer pour zoomer · Double-tap</p>
+            <p className="text-[9px] text-white font-bold">Tap pour agrandir · Pincer pour zoomer</p>
           </div>
         )}
 
@@ -313,6 +319,15 @@ export function ProductDetailPage({ product, onBack, onSellerClick }: ProductDet
             </div>
           </div>
         </div>
+      )}
+
+      {/* Lightbox plein écran */}
+      {lightboxOpen && (
+        <ImageLightbox
+          images={product.images}
+          initialIndex={lightboxIndex}
+          onClose={() => setLightboxOpen(false)}
+        />
       )}
     </div>
   );

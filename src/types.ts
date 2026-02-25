@@ -17,6 +17,11 @@ export interface User {
   hasPhysicalShop?: boolean;
   managesDelivery?: boolean;
   bio?: string;
+  // Favoris — stockés directement dans le profil utilisateur
+  bookmarkedProductIds?: string[];
+  // Notation silencieuse — prêt pour Sprint 4
+  rating?: number;
+  reviewCount?: number;
 }
 
 export interface Product {
@@ -35,6 +40,9 @@ export interface Product {
   whatsappClickCount: number;
   status: 'active' | 'sold' | 'deleted';
   neighborhoods?: string[]; // multi-ville vendeur
+  // Notation produit — fondations silencieuses Sprint 4
+  sellerRating?: number;
+  sellerReviewCount?: number;
   createdAt: Date;
 }
 
