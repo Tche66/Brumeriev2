@@ -6,6 +6,8 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { Conversation, Message } from '@/types';
+import { createNotification } from './notificationService';
+import { showLocalPushNotification } from './pushService';
 
 const convsCol = collection(db, 'conversations');
 
@@ -105,6 +107,22 @@ export async function sendMessage(
   });
 
   await batch.commit();
+
+  // Déclencher notification pour le destinataire
+  if (otherId) {
+    await createNotification(
+      otherId,
+      text.length > 0 && conv.lastMessage ? 'reply' : 'message',
+      senderName,
+      text.trim().substring(0, 80),
+      { conversationId: convId, senderId },
+    );
+    // Push PWA locale si app en arrière-plan
+    await showLocalPushNotification(senderName, text.trim(), {
+      conversationId: convId,
+      type: 'message',
+    });
+  }
 }
 
 // ── Envoyer une fiche produit ──────────────────────────────

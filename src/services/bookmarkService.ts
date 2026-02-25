@@ -4,6 +4,8 @@
 
 import { doc, updateDoc, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
 import { db } from '@/config/firebase';
+import { createNotification } from './notificationService';
+import { showLocalPushNotification } from './pushService';
 
 const userRef = (uid: string) => doc(db, 'users', uid);
 
@@ -19,12 +21,32 @@ export async function getBookmarks(userId: string): Promise<string[]> {
   }
 }
 
-export async function addBookmark(userId: string, productId: string): Promise<boolean> {
+export async function addBookmark(
+  userId: string,
+  productId: string,
+  productInfo?: { sellerId: string; title: string; buyerName: string },
+): Promise<boolean> {
   if (!userId || !productId) return false;
   try {
     await updateDoc(userRef(userId), {
       bookmarkedProductIds: arrayUnion(productId),
     });
+
+    // Notifier le vendeur si infos disponibles
+    if (productInfo?.sellerId && productInfo.sellerId !== userId) {
+      await createNotification(
+        productInfo.sellerId,
+        'favorite',
+        '❤️ Nouveau favori !',
+        `${productInfo.buyerName} a mis "${productInfo.title}" en favori`,
+        { productId },
+      );
+      await showLocalPushNotification(
+        '❤️ Nouveau favori !',
+        `${productInfo.buyerName} a mis "${productInfo.title}" en favori`,
+        { productId, type: 'favorite' },
+      );
+    }
     return true;
   } catch (err) {
     console.error('[Bookmarks] addBookmark:', err);

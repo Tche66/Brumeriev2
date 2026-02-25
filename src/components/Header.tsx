@@ -1,16 +1,25 @@
 // src/components/Header.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { subscribeUnreadNotifCount } from '@/services/notificationService';
 
 interface HeaderProps {
   onProfileClick?: () => void;
   onSearchChange?: (term: string) => void;
   searchTerm?: string;
+  onNotificationsClick?: () => void;
 }
 
-export function Header({ onProfileClick, onSearchChange, searchTerm = '' }: HeaderProps) {
-  const { userProfile } = useAuth();
+export function Header({ onProfileClick, onSearchChange, searchTerm = '', onNotificationsClick }: HeaderProps) {
+  const { userProfile, currentUser } = useAuth();
   const [focused, setFocused] = useState(false);
+  const [unreadNotifs, setUnreadNotifs] = useState(0);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const unsub = subscribeUnreadNotifCount(currentUser.uid, setUnreadNotifs);
+    return unsub;
+  }, [currentUser]);
 
   return (
     <header className="bg-white sticky top-0 z-50 border-b border-gray-100">
@@ -32,6 +41,22 @@ export function Header({ onProfileClick, onSearchChange, searchTerm = '' }: Head
               }}
             />
           </div>
+
+          {/* Cloche + Avatar */}
+          <div className="flex items-center gap-2">
+            {/* Cloche notifications */}
+            <button onClick={onNotificationsClick}
+              className="relative w-9 h-9 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center hover:border-slate-300 transition-all active:scale-90">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+              {unreadNotifs > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-red-500 rounded-full flex items-center justify-center px-1 border-2 border-white">
+                  <span className="text-[8px] font-black text-white">{unreadNotifs > 9 ? '9+' : unreadNotifs}</span>
+                </span>
+              )}
+            </button>
 
           {/* Avatar utilisateur */}
           {userProfile && (
@@ -79,6 +104,7 @@ export function Header({ onProfileClick, onSearchChange, searchTerm = '' }: Head
               </svg>
             </button>
           )}
+          </div>
         </div>
       </div>
     </header>

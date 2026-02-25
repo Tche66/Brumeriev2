@@ -20,12 +20,16 @@ import { ConversationsListPage } from '@/pages/ConversationsListPage';
 import { ChatPage } from '@/pages/ChatPage';
 import { BottomNav } from '@/components/BottomNav';
 import { Product, Conversation } from '@/types';
+import { NotificationsPage } from '@/pages/NotificationsPage';
+import { ToastContainer } from '@/components/ToastNotification';
+import { useToast } from '@/hooks/useToast';
+import { subscribeToNotifications } from '@/services/notificationService';
 
 type Page =
   | 'home' | 'profile' | 'sell' | 'messages'
   | 'product-detail' | 'seller-profile' | 'chat'
   | 'edit-profile' | 'verification' | 'support'
-  | 'settings' | 'privacy' | 'terms' | 'about';
+  | 'settings' | 'privacy' | 'terms' | 'about' | 'notifications';
 
 // ── AuthGate ─────────────────────────────────────────────────
 function AuthGate() {
@@ -97,6 +101,8 @@ function AppContent() {
   const [navigationHistory, setNavigationHistory] = useState<Page[]>(['home']);
   const [showRoleSwitch, setShowRoleSwitch] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const { toasts, showToast, dismissToast } = useToast();
+  const prevNotifsRef = React.useRef<Set<string>>(new Set());
 
   useEffect(() => { window.scrollTo(0, 0); }, [activePage, selectedProduct]);
 
@@ -104,6 +110,32 @@ function AppContent() {
   useEffect(() => {
     if (!currentUser) return;
     const unsub = subscribeTotalUnread(currentUser.uid, setUnreadMessages);
+    return unsub;
+  }, [currentUser]);
+
+  // Abonnement notifications → toast in-app quand nouvelle notif
+  useEffect(() => {
+    if (!currentUser) return;
+    const unsub = subscribeToNotifications(currentUser.uid, (notifs) => {
+      notifs.filter(n => !n.read).forEach(notif => {
+        if (!prevNotifsRef.current.has(notif.id)) {
+          prevNotifsRef.current.add(notif.id);
+          // Afficher le toast seulement pour les nouvelles notifs
+          if (prevNotifsRef.current.size > 1) {
+            showToast({
+              type: notif.type as any,
+              title: notif.title,
+              body: notif.body,
+              onClick: notif.data?.conversationId
+                ? () => handleStartChat(notif.data!.conversationId!)
+                : undefined,
+            });
+          } else {
+            // Premier chargement — juste initialiser la ref
+          }
+        }
+      });
+    });
     return unsub;
   }, [currentUser]);
 
@@ -175,7 +207,11 @@ function AppContent() {
     <div className="min-h-screen bg-white">
       <main>
         {activePage === 'home' && (
-          <HomePage onProductClick={handleProductClick} onProfileClick={() => navigate('profile')} />
+          <HomePage
+            onProductClick={handleProductClick}
+            onProfileClick={() => navigate('profile')}
+            onNotificationsClick={() => navigate('notifications')}
+          />
         )}
         {activePage === 'product-detail' && selectedProduct && (
           <ProductDetailPage
@@ -209,6 +245,14 @@ function AppContent() {
         {activePage === 'sell' && !isBuyer && (
           <SellPage onClose={() => handleBottomNavNavigate('home')} onSuccess={() => handleBottomNavNavigate('home')} />
         )}
+        {activePage === 'notifications' && (
+          <NotificationsPage
+            onBack={goBack}
+            onOpenConversation={async (convId) => {
+              await handleStartChat(convId);
+            }}
+          />
+        )}
       </main>
 
       {MAIN_PAGES.includes(activePage) && (
@@ -223,6 +267,9 @@ function AppContent() {
       {showRoleSwitch && userProfile && (
         <RoleSwitchModal currentRole={role} onConfirm={handleRoleSwitch} onCancel={() => setShowRoleSwitch(false)} />
       )}
+
+      {/* Toast In-App */}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

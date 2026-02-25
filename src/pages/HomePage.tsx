@@ -10,6 +10,7 @@ import { Product, CATEGORIES, NEIGHBORHOODS } from '@/types';
 interface HomePageProps {
   onProductClick: (product: Product) => void;
   onProfileClick: () => void;
+  onNotificationsClick?: () => void;
 }
 
 const ALL_CATEGORIES = [{ id: 'all', name: 'Tout', icon: null }, ...CATEGORIES];
@@ -37,7 +38,7 @@ const TrustBadges = () => (
   </div>
 );
 
-export function HomePage({ onProductClick, onProfileClick }: HomePageProps) {
+export function HomePage({ onProductClick, onProfileClick, onNotificationsClick }: HomePageProps) {
   const { currentUser, userProfile, refreshUserProfile } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,7 +85,7 @@ export function HomePage({ onProductClick, onProfileClick }: HomePageProps) {
 
   return (
     <div className="min-h-screen bg-white pb-24 font-sans">
-      <Header onProfileClick={onProfileClick} onSearchChange={setSearchTerm} searchTerm={searchTerm} />
+      <Header onProfileClick={onProfileClick} onSearchChange={setSearchTerm} searchTerm={searchTerm} onNotificationsClick={onNotificationsClick} />
 
       {/* Hero */}
       {!searchTerm && (
