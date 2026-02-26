@@ -155,7 +155,7 @@ function AppContent() {
 
   const role = userProfile?.role || 'buyer';
   const isBuyer = role === 'buyer';
-  const MAIN_PAGES: Page[] = ['home', 'messages', 'profile', ...(isBuyer ? [] : ['sell' as Page])];
+  const MAIN_PAGES: Page[] = ['home', 'messages', 'profile', 'order-status', ...(isBuyer ? [] : ['sell' as Page])];
 
   const navigate = (page: Page) => {
     setNavigationHistory(prev => [...prev, page]);
@@ -174,7 +174,11 @@ function AppContent() {
   const handleSellerClick = (sellerId: string) => { setSelectedSellerId(sellerId); navigate('seller-profile'); };
   const handleBottomNavNavigate = (page: string) => {
     setSelectedProduct(null); setSelectedSellerId(null); setSelectedConversation(null);
-    setNavigationHistory([page as Page]); setActivePage(page as Page);
+    // 'orders' dans le BottomNav → 'order-status'
+    const target = page === 'orders' ? 'order-status' : page;
+    setSelectedOrderId('');
+    setNavigationHistory([target as Page]);
+    setActivePage(target as Page);
   };
 
   // Ouvrir une conversation depuis liste ou depuis produit

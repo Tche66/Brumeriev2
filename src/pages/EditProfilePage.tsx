@@ -25,6 +25,9 @@ export function EditProfilePage({ onBack, onSaved }: EditProfilePageProps) {
   const [error, setError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Charger le profil frais depuis Firestore
+  React.useEffect(() => { refreshUserProfile(); }, []);
+
   // ── Champs communs ────────────────────────────────────────
   const [name, setName] = useState(userProfile?.name || '');
   const [neighborhood, setNeighborhood] = useState(userProfile?.neighborhood || '');
@@ -45,6 +48,13 @@ export function EditProfilePage({ onBack, onSaved }: EditProfilePageProps) {
   const [paymentMethods, setPaymentMethods] = useState<PaymentInfo[]>(
     userProfile?.defaultPaymentMethods || []
   );
+
+  // Sync quand le profil est rechargé depuis Firestore
+  React.useEffect(() => {
+    if (userProfile?.defaultPaymentMethods) {
+      setPaymentMethods(userProfile.defaultPaymentMethods);
+    }
+  }, [userProfile?.defaultPaymentMethods?.length]);
   const [addingPM, setAddingPM] = useState(false);
   const [newPM, setNewPM] = useState({ method: 'wave', phone: '', holderName: '', waveLink: '' });
 

@@ -3,6 +3,8 @@
 import React, { useState, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { createOrder, submitProof } from '@/services/orderService';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/config/firebase';
 import { Product, MOBILE_PAYMENT_METHODS, PaymentInfo } from '@/types';
 
 interface OrderFlowPageProps {
@@ -19,6 +21,9 @@ export function OrderFlowPage({ product, onBack, onOrderCreated }: OrderFlowPage
   const [orderId, setOrderId] = useState('');
   const [deliveryType, setDeliveryType] = useState<'delivery' | 'in_person'>('in_person');
   const [paymentInfo, setPaymentInfo] = useState<PaymentInfo | null>(null);
+  const [sellerPayments, setSellerPayments] = useState<PaymentInfo[]>([]);
+  const [sellerDelivery, setSellerDelivery] = useState<{ sameZone: number; otherZone: number }>({ sameZone: 0, otherZone: 0 });
+  const [loadingSellerInfo, setLoadingSellerInfo] = useState(true);
   const [transactionRef, setTransactionRef] = useState('');
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
   const [screenshotPreview, setScreenshotPreview] = useState('');
@@ -27,13 +32,33 @@ export function OrderFlowPage({ product, onBack, onOrderCreated }: OrderFlowPage
   const fileRef = useRef<HTMLInputElement>(null);
 
 
-  const sellerPayments: PaymentInfo[] = (product as any).paymentMethods || [];
+
 
   const copyPhone = (phone: string) => {
     navigator.clipboard.writeText(phone);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  // Charger les coordonnées de paiement du vendeur depuis Firestore
+  React.useEffect(() => {
+    const fetchSeller = async () => {
+      setLoadingSellerInfo(true);
+      try {
+        const snap = await getDoc(doc(db, 'users', product.sellerId));
+        if (snap.exists()) {
+          const data = snap.data();
+          setSellerPayments(data.defaultPaymentMethods || []);
+          setSellerDelivery({
+            sameZone: data.deliveryPriceSameZone || 0,
+            otherZone: data.deliveryPriceOtherZone || 0,
+          });
+        }
+      } catch (e) { console.error('[OrderFlow] fetchSeller:', e); }
+      finally { setLoadingSellerInfo(false); }
+    };
+    fetchSeller();
+  }, [product.sellerId]);
 
   const handleStartOrder = async () => {
     if (!currentUser || !userProfile || !paymentInfo) return;
@@ -114,17 +139,17 @@ export function OrderFlowPage({ product, onBack, onOrderCreated }: OrderFlowPage
               <span className="text-[12px] text-slate-600 font-medium">Prix de l'article</span>
               <span className="font-black text-slate-900 text-[13px]">{product.price.toLocaleString('fr-FR')} FCFA</span>
             </div>
-            {deliveryType === 'delivery' && (product as any).deliveryPriceOtherZone > 0 && (
+            {deliveryType === 'delivery' && sellerDelivery.otherZone > 0 && (
               <div className="flex justify-between items-center">
                 <span className="text-[12px] text-slate-500 font-medium">Frais de livraison</span>
-                <span className="font-bold text-slate-600 text-[12px]">+ {((product as any).deliveryPriceOtherZone || 0).toLocaleString('fr-FR')} FCFA</span>
+                <span className="font-bold text-slate-600 text-[12px]">+ {sellerDelivery.otherZone.toLocaleString('fr-FR')} FCFA</span>
               </div>
             )}
             <div className="h-px bg-slate-200 my-2" />
             <div className="flex justify-between items-center">
               <span className="text-[12px] font-black text-slate-800 uppercase">Total à envoyer</span>
               <span className="font-black text-green-700 text-[15px]">
-                {(product.price + (deliveryType === 'delivery' ? ((product as any).deliveryPriceOtherZone || 0) : 0)).toLocaleString('fr-FR')} FCFA
+                {(product.price + (deliveryType === 'delivery' ? sellerDelivery.otherZone : 0)).toLocaleString('fr-FR')} FCFA
               </span>
             </div>
           </div>
@@ -152,7 +177,11 @@ export function OrderFlowPage({ product, onBack, onOrderCreated }: OrderFlowPage
         {/* Choix méthode de paiement */}
         <div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Méthode de paiement du vendeur</p>
-          {sellerPayments.length === 0 ? (
+          {loadingSellerInfo ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="w-6 h-6 border-2 border-green-200 border-t-green-600 rounded-full animate-spin"/>
+            </div>
+          ) : sellerPayments.length === 0 ? (
             <div className="bg-amber-50 rounded-2xl p-4 border border-amber-100">
               <p className="text-[11px] text-amber-800 font-bold">Le vendeur n'a pas encore renseigné ses coordonnées de paiement. Contactez-le via la messagerie.</p>
             </div>

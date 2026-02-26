@@ -87,6 +87,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUserProfile({
         ...data,
         bookmarkedProductIds: data.bookmarkedProductIds || [],
+        defaultPaymentMethods: data.defaultPaymentMethods || [],
+        deliveryPriceSameZone: data.deliveryPriceSameZone || 0,
+        deliveryPriceOtherZone: data.deliveryPriceOtherZone || 0,
+        managesDelivery: data.managesDelivery || false,
+        contactCount: data.contactCount || 0,
       } as User);
     }
   }

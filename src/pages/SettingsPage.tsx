@@ -59,6 +59,13 @@ export function SettingsPage({ onBack, onNavigate, role = 'seller' }: SettingsPa
   const [newPM, setNewPM] = useState({ method: 'wave', phone: '', holderName: '' });
   const [savingPM, setSavingPM] = useState(false);
 
+  // Sync depuis Firestore au chargement pour avoir les données fraîches
+  React.useEffect(() => {
+    refreshUserProfile().then(() => {
+      setPaymentMethods(userProfile?.defaultPaymentMethods || []);
+    });
+  }, []);
+
   const handleSavePaymentMethod = async () => {
     if (!currentUser || !newPM.phone.trim() || !newPM.holderName.trim()) return;
     setSavingPM(true);

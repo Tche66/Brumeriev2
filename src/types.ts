@@ -21,6 +21,9 @@ export interface User {
   bookmarkedProductIds?: string[];
   // Paiement mobile — coordonnées par défaut
   defaultPaymentMethods?: PaymentInfo[];
+  // Livraison
+  deliveryPriceSameZone?: number;
+  deliveryPriceOtherZone?: number;
   // Notation — visible Sprint 5
   rating?: number;
   reviewCount?: number;
